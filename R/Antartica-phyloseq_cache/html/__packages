@@ -1,0 +1,13 @@
+base
+dvutils
+stringr
+ggplot2
+dplyr
+tidyr
+tibble
+readr
+maps
+glue
+phyloseq
+knitr
+rmdformats

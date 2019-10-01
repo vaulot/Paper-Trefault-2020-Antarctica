@@ -70,12 +70,15 @@ opts_knit$set(width=75)
   for (one_sample_type in sample_type) {
       asv[[one_sample_type]] <- metapr2_export_asv(dataset_id_selected = i, 
                                                    export_phyloseq = FALSE, 
-                                                   export_xls = TRUE,
+                                                   export_xls = FALSE,
                                                    boot_min = 90, 
                                                    boot_level = supergroup_boot,
                                                    directory = "../dada2/") 
 
       ps[[one_sample_type]] <- asv[[one_sample_type]][["ps"]]
+      sample_data(ps[[one_sample_type]])$sample_label <- str_c(sample_data(ps[[one_sample_type]])$metadata_code, 
+                                                               str_replace_na(sample_data(ps[[one_sample_type]])$sample_concentration, ""), 
+                                                               sep = "." )
       
       print(glue("Phyloseq - {one_sample_type}"))
       print(ps[[one_sample_type]] )
@@ -104,7 +107,6 @@ opts_knit$set(width=75)
 
       ps[[one_sample_type]] <- ps[[one_sample_type]] %>% 
         subset_taxa((division %in% c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")) |
-                    # ((division ==  "Dinoflagellata") & (class != "Syndiniales")) |
                     (class == "Filosa-Chlorarachnea")) %>% 
         subset_samples(station_id=="6") %>% 
         filter_taxa(function(x) sum(x) > 0 , TRUE)
@@ -229,7 +231,8 @@ opts_knit$set(width=75)
 
 ```{r fig.height=8, fig.width=8}
   for (one_sample_type in sample_type_all[4:11]) { 
-    gg <- plot_bar(ps[[one_sample_type]], x = "metadata_code", fill = "class") + 
+    
+    gg <- plot_bar(ps[[one_sample_type]], x = "sample_label", fill = "class") + 
         geom_bar(aes(color = class, fill = class), stat = "identity", position = "stack") + 
         ggtitle(str_c("Class level - ", one_sample_type)) + theme(axis.text.y = element_text(size = 10)) + 
         theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) + coord_flip() + 
