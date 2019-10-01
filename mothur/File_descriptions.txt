@@ -1,0 +1,48 @@
+Folder:
+	Excel: 2015 Antarctic > metabarcoding > files paper serie time > excel_files
+		-Excel_fototroph_18S = All dataset of the 18S rRNA gene, only the Photosynthetic groups at 5m.
+			In each sheet:
+				All_size_fractions_photosynt: Number and percent of reads for all samples in all size fraction.
+				photosynt_size_fraction_02um: Number and percent of reads at the size fraction 0.2 um 
+				photosynt_size_fraction_3um: Number and percent of reads at the size fraction 3 um 
+				photosynt_size_fraction_20um: Number and percent of reads at the size fraction 20 um 
+				photosynt_Size_02_treeplot: Percent of reads for the 95% most abundant classes at SF 0.2um( matrix used to do the tree plot. Figure 1B)
+				photosynt_Size_3_treeplot: Percent of reads for the 95% most abundant classes at SF 3um( matrix used to do the tree plot. Figure 1B)  
+				photosynt_Size_20_treeplot: Percent of reads for the 95% most abundant classes at SF 20um( matrix used to do the tree plot. Figure 1B)
+				photosynt_Size_02_heatmap : Number and percent of reads at the size fraction 0.2 um for the OTUs with at least 10% of abundance. 
+				photosynt_Size_3_heatmap : Number and percent of reads at the size fraction 3 um for the OTUs with at least 10% of abundance. 
+				photosynt_Size_20_heatmap : Number and percent of reads at the size fraction 20 um for the OTUs with at least 10% of abundance. 
+				Photosynt_all_size_heatmap_FIG : Percent of reads at all size fraction ( matrix used to do the heatmap Figure 3A paper)
+				Vertical_profile_16_FIG:Rank abundance to vertical profile analysis at day 16 (Figure 4)	
+				Rank_abundace_Matrix_photosynth: Rank abudance matrix (Figure 1A)
+			
+		-Excel_heterotroph_18S = All dataset of the 18S rRNA gene, only the the Heterotrophic groups at 5m.
+			In each sheet:
+				All_size_fractions_heterotrophs : Number and percent of reads for all samples in all size fraction.
+				heterotrophs_size_fraction_02um : Number and percent of reads at the size fraction 0.2 um 
+				heterotrophs_size_fraction_3um : Number and percent of reads at the size fraction 3 um 
+				heterotrophs_size_fraction_20um : Number and percent of reads at the size fraction 20 um 
+				heterotrophs_Size_02_treeplot: Percent of reads for the 95% most abundant classes at SF 0.2um.
+				heterotrophs_Size_3_treeplot : Percent of reads for the 95% most abundant classes at SF 3um.
+				heterotrophs_Size_20_treeplot : Percent of reads for the 95% most abundant classes at SF 20um.
+				heterotrophs_Size_02_heatmap : Number and percent of reads at the size fraction 0.2 um for the OTUs with at least 10% of abundance. 
+				heterotrophs_Size_3_heatmap : Number and percent of reads at the size fraction 3 um for the OTUs with at least 10% of abundance. 
+				heterotrophs_Size_20_heatmap : Number and percent of reads at the size fraction 20 um for the OTUs with at least 10% of abundance. 
+				hetero_all_size_heatmap_FIG : Percent of reads at all size fraction ( matrix used to do the heatmap Figure suppl. 1 paper)
+			
+			
+		-Excel_plastidial_gene_16S = All dataset of the 16S rRNA gene at 5m.
+			In each sheet:	
+				All_size_fractions_plastidial: Number and percent of reads for all samples in all size fraction.
+				plastidial_size_fraction_02um: Number and percent of reads at the size fraction 0.2 um 
+				plastidial_size_fraction_3um: Number and percent of reads at the size fraction 3 um 
+				plastidial_size_fraction_20um: Number and percent of reads at the size fraction 20 um 
+				plastidial_Size_02_treeplot: Percent of reads for the 95% most abundant classes at SF 0.2um( matrix used to do the tree plot. Figure 2B)
+				plastidial_Size_3_treeplot: Percent of reads for the 95% most abundant classes at SF 3um( matrix used to do the tree plot. Figure 2B)  
+				plastidial_Size_20_treeplot: Percent of reads for the 95% most abundant classes at SF 20um( matrix used to do the tree plot. Figure 2B)
+				plastidial_Size_02_heatmap : Number and percent of reads at the size fraction 0.2 um for the OTUs with at least 10% of abundance. 
+				plastidial_Size_3_heatmap : Number and percent of reads at the size fraction 3 um for the OTUs with at least 10% of abundance. 
+				plastidial_Size_20_heatmap : Number and percent of reads at the size fraction 20 um for the OTUs with at least 10% of abundance. 
+				plastidial_all_size_heatmap_FIG : Percent of reads at all size fraction ( matrix used to do the heatmap Figure 3B paper)
+				Vertical_profile_16_FIG: Rank abundance to vertical profile analysis at day 16 (Figure 4)
+				Rank_abundace_Matrix_plastidial: Rank abudance matrix (Figure 2A)

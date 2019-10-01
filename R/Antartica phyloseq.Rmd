@@ -1,0 +1,240 @@
+---
+title: "MetaPR2 - ASV analysis"
+date: "`r Sys.Date()`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+---
+
+# Initialize
+
+## Libraries
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+   if(any(grepl("package:dvutils", search()))) detach("package:dvutils", unload=TRUE)
+   library(dvutils)
+   library(stringr)
+   library(ggplot2)
+   library(dplyr)
+   library(tidyr)
+   library(tibble)
+   library(readr)
+   library(maps)
+   library(glue)
+   
+   library(phyloseq)
+
+   # library(pr2database)
+   # data("pr2")
+```
+
+## Markdown
+```{r knitr_init, echo=FALSE, cache=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE,
+               eval = TRUE)
+opts_knit$set(width=75)
+```
+
+# Get the Antarctica ASVs
+
+
+|set id |  description |
+|---|---|
+| 16 | Antar_2015_18S_V4 |
+| 17 | Antar_2015_16S_plastid |
+| 18 | Antar_2015_18S_V4_sorted |
+	
+* Only use asv for which supergroup_boot >= 90
+
+```{r, message=FALSE}
+  rm(list = ls())
+  sample_type <- c("18S filter", "16S plastid", "18S sort")
+  
+  asv <- list()
+  ps <- list()
+  long <- list()
+# Export as specific data set as a phyloseq file
+  
+  i <- 16
+  for (one_sample_type in sample_type) {
+      asv[[one_sample_type]] <- metapr2_export_asv(dataset_id_selected = i, 
+                                                   export_phyloseq = FALSE, 
+                                                   export_xls = TRUE,
+                                                   boot_min = 90, 
+                                                   boot_level = supergroup_boot,
+                                                   directory = "../dada2/") 
+
+      ps[[one_sample_type]] <- asv[[one_sample_type]][["ps"]]
+      
+      print(glue("Phyloseq - {one_sample_type}"))
+      print(ps[[one_sample_type]] )
+      cat("============================\n")
+      
+  i <- i + 1
+  
+  }
+  
+  
+  sample_variables(ps[["18S filter"]])
+  
+  rm(asv)
+
+```
+
+
+# Filtration
+
+* Only use Station 6 (not 14)
+* Only keep photosynthetic groups abd exclude dinoflagellates
+* Very important, must remove taxa that are not present in the filtered samples
+
+```{r}
+  for (one_sample_type in sample_type) {
+
+      ps[[one_sample_type]] <- ps[[one_sample_type]] %>% 
+        subset_taxa((division %in% c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")) |
+                    # ((division ==  "Dinoflagellata") & (class != "Syndiniales")) |
+                    (class == "Filosa-Chlorarachnea")) %>% 
+        subset_samples(station_id=="6") %>% 
+        filter_taxa(function(x) sum(x) > 0 , TRUE)
+      
+      
+      print(glue("Phyloseq - {one_sample_type}"))
+      print(ps[[one_sample_type]] )
+      cat("============================\n")
+      
+  }
+
+```
+# Get the different fraction separately
+
+```{r, message=FALSE}
+
+
+  fraction_filter <- c(0.2, 3, 20)
+  fraction_sort <- c("pico", "nano")
+  
+  sample_type_filtered <- c(str_c(sample_type[1], fraction_filter, "um", sep=" "), 
+                            str_c(sample_type[2], fraction_filter, "um", sep=" "),
+                            str_c(sample_type[3], fraction_sort, sep=" "))
+  
+# Export as specific data set as a phyloseq file
+  
+  for (one_sample_type in sample_type[1:2]) {
+    for (one_fraction in fraction_filter) {
+      one_sample_type_filtered <- c(str_c(one_sample_type, one_fraction, "um", sep=" "))
+      ps[[one_sample_type_filtered]] <- ps[[one_sample_type]] %>% 
+        subset_samples(fraction_min == one_fraction) %>% 
+        filter_taxa(function(x) sum(x) > 0 , TRUE)
+      
+      print(glue("Phyloseq - {one_sample_type_filtered}"))
+      print(ps[[one_sample_type_filtered]] )
+      cat("============================\n")
+    }
+  
+  }
+  
+# Sorted samples
+  
+    for (one_sample_type in sample_type[3]) {
+    for (one_fraction in fraction_sort) {
+      one_sample_type_filtered <- c(str_c(one_sample_type, one_fraction, sep=" "))
+      ps[[one_sample_type_filtered]] <- ps[[one_sample_type]] %>% 
+        subset_samples(fraction_name == one_fraction) %>% 
+        filter_taxa(function(x) sum(x) > 0 , TRUE)
+      
+      print(glue("Phyloseq - {one_sample_type_filtered}"))
+      print(ps[[one_sample_type_filtered]] )
+      cat("============================\n")
+    }
+  
+    }
+  
+  sample_type_all <- c(sample_type, sample_type_filtered)
+  
+
+```
+
+# Normalize and transform to long form
+
+```{r, message=FALSE}
+
+  for (one_sample_type in sample_type_all) {
+    
+      cat(one_sample_type)
+      cat("\n============================")  
+      
+      ps[[one_sample_type]] <- phyloseq_normalize_median(ps[[one_sample_type]])
+      
+      long[[one_sample_type]] <- phyloseq_transform_to_long(ps[[one_sample_type]])
+      
+      cat("\n") 
+      
+  }
+
+
+```
+
+
+# Treemaps
+
+
+```{r fig.height=8, fig.width=8}
+
+  treemap_class <- list()
+  treemap_genus <- list()
+  
+  for (one_sample_type in sample_type_all) {
+    
+      treemap_class[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]], 
+                                                                     division, class, 
+                                                                     str_c(one_sample_type, " - Class" ))
+      treemap_genus[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]], 
+                                                                     class, genus, 
+                                                                     str_c(one_sample_type, " - Genus" ))
+ 
+  }
+
+```
+
+# ASVs bargraphs
+
+```{r, fig.height=8, fig.width=8}
+
+
+
+  asv_bargraph <- list()
+  
+  for (one_sample_type in sample_type_all) {
+    
+      asv_bargraph[[one_sample_type]] <- phyloseq_long_asv_bargraph(long[[one_sample_type]], text_scaling = 0.5, 
+                                                                title = one_sample_type)
+
+  }
+
+
+```
+# Barplots per sample
+
+```{r fig.height=8, fig.width=8}
+  for (one_sample_type in sample_type_all[4:11]) { 
+    gg <- plot_bar(ps[[one_sample_type]], x = "metadata_code", fill = "class") + 
+        geom_bar(aes(color = class, fill = class), stat = "identity", position = "stack") + 
+        ggtitle(str_c("Class level - ", one_sample_type)) + theme(axis.text.y = element_text(size = 10)) + 
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) + coord_flip() + 
+        scale_fill_viridis_d() + scale_color_viridis_d()
+    print(gg)
+}
+```
+
