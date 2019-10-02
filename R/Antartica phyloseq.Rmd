@@ -76,9 +76,13 @@ opts_knit$set(width=75)
                                                    directory = "../dada2/") 
 
       ps[[one_sample_type]] <- asv[[one_sample_type]][["ps"]]
-      sample_data(ps[[one_sample_type]])$sample_label <- str_c(sample_data(ps[[one_sample_type]])$metadata_code, 
-                                                               str_replace_na(sample_data(ps[[one_sample_type]])$sample_concentration, ""), 
-                                                               sep = "." )
+  # Label samples with date 
+      sample_data(ps[[one_sample_type]])$sample_label <- as.character(sample_data(ps[[one_sample_type]])$date)
+      
+  # Add TFF to sample name
+      # sample_data(ps[[one_sample_type]])$sample_label <- str_c(sample_data(ps[[one_sample_type]])$metadata_code, 
+      #                                                          str_replace_na(sample_data(ps[[one_sample_type]])$sample_concentration, ""), 
+      #                                                          sep = "." )
       
       print(glue("Phyloseq - {one_sample_type}"))
       print(ps[[one_sample_type]] )
@@ -99,6 +103,8 @@ opts_knit$set(width=75)
 # Filtration
 
 * Only use Station 6 (not 14)
+* Only surface considered (5 m)
+* Do not consider TFF samples 
 * Only keep photosynthetic groups abd exclude dinoflagellates
 * Very important, must remove taxa that are not present in the filtered samples
 
@@ -109,6 +115,8 @@ opts_knit$set(width=75)
         subset_taxa((division %in% c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")) |
                     (class == "Filosa-Chlorarachnea")) %>% 
         subset_samples(station_id=="6") %>% 
+        subset_samples(depth_level=="surface") %>% 
+        subset_samples(is.na(sample_concentration)) %>%
         filter_taxa(function(x) sum(x) > 0 , TRUE)
       
       
@@ -192,7 +200,7 @@ opts_knit$set(width=75)
 # Treemaps
 
 
-```{r fig.height=8, fig.width=8}
+```{r fig.height=6, fig.width=6}
 
   treemap_class <- list()
   treemap_genus <- list()
@@ -213,11 +221,6 @@ opts_knit$set(width=75)
 # ASVs bargraphs
 
 
-```{r}
-
-```
-
-
 ```{r, fig.height=8, fig.width=8}
 
 
@@ -227,9 +230,9 @@ opts_knit$set(width=75)
   
   for (one_sample_type in sample_type_all) {
     
-      bargraph_asv [[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.5,use_asv = TRUE, 
+      bargraph_asv [[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.75,n_bars = 20, use_asv = TRUE, 
                                                                 title = one_sample_type)
-      bargraph_species[[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.5,use_asv = FALSE, 
+      bargraph_species[[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.75,n_bars = 20 ,use_asv = FALSE, 
                                                                 title = one_sample_type)
 
   }
@@ -266,11 +269,11 @@ phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
 ```
 
 
-# Class
-```{r fig.height=8, fig.width=12}
+## Class
+```{r fig.height=6, fig.width=9}
   heatmap_class <- list()
 
-  for (one_sample_type in sample_type_all) { 
+  for (one_sample_type in sample_type_all[4:11]) { 
     
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "class") %>% 
       phyloseq_keep_abundant(contrib_min=0.1)
@@ -288,11 +291,11 @@ phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
   }
 ```
 
-# Genus
-```{r fig.height=8, fig.width=12}
+## Genus
+```{r fig.height=6, fig.width=9}
   heatmap_genus <- list()
 
-  for (one_sample_type in sample_type_all) { 
+  for (one_sample_type in sample_type_all[4:11]) { 
     
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "genus") %>% 
       phyloseq_keep_abundant(contrib_min=0.1)
@@ -306,5 +309,35 @@ phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
     print(heatmap_genus[[one_sample_type]] )
   
   }
+```
+
+
+
+# Figures
+
+## Figure 2
+
+```{r fig.height=30, fig.width=15}
+
+treemap_18S_filt <- cowplot::plot_grid(treemap_class[["18S filter 0.2 um"]]$gg,
+                                       treemap_class[["18S filter 3 um"]]$gg,
+                                       treemap_class[["18S filter 20 um"]]$gg, 
+                                       ncol=1)
+
+treemap_18S_sort <- cowplot::plot_grid(treemap_class[["18S sort pico"]]$gg,
+                                       treemap_class[["18S sort nano"]]$gg, 
+                                       ncol=1)
+
+treemap_16S_filt <- cowplot::plot_grid(treemap_class[["16S plastid 0.2 um"]]$gg,
+                                       treemap_class[["16S plastid 3 um"]]$gg,
+                                       treemap_class[["16S plastid 20 um"]]$gg, 
+                                       ncol=1)
+
+fig_2 <- cowplot::plot_grid(bargraph_species[["18S filter"]]$gg, treemap_18S_filt,
+                            bargraph_species[["18S sort"]]$gg, treemap_18S_sort,
+                            bargraph_species[["16S plastid"]]$gg, treemap_16S_filt,
+                            ncol=2,rel_widths = c(2,1))
+
+fig_2
 ```
 
