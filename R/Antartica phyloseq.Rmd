@@ -212,15 +212,24 @@ opts_knit$set(width=75)
 
 # ASVs bargraphs
 
+
+```{r}
+
+```
+
+
 ```{r, fig.height=8, fig.width=8}
 
 
 
-  asv_bargraph <- list()
+  bargraph_asv <- list()
+  bargraph_species <- list()
   
   for (one_sample_type in sample_type_all) {
     
-      asv_bargraph[[one_sample_type]] <- phyloseq_long_asv_bargraph(long[[one_sample_type]], text_scaling = 0.5, 
+      bargraph_asv [[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.5,use_asv = TRUE, 
+                                                                title = one_sample_type)
+      bargraph_species[[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.5,use_asv = FALSE, 
                                                                 title = one_sample_type)
 
   }
@@ -230,14 +239,72 @@ opts_knit$set(width=75)
 # Barplots per sample
 
 ```{r fig.height=8, fig.width=8}
+
+  bargraph_sample <- list()
+
   for (one_sample_type in sample_type_all[4:11]) { 
     
-    gg <- plot_bar(ps[[one_sample_type]], x = "sample_label", fill = "class") + 
+    bargraph_sample[[one_sample_type]] <- plot_bar(ps[[one_sample_type]], x = "sample_label", fill = "class") + 
         geom_bar(aes(color = class, fill = class), stat = "identity", position = "stack") + 
         ggtitle(str_c("Class level - ", one_sample_type)) + theme(axis.text.y = element_text(size = 10)) + 
         theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) + coord_flip() + 
         scale_fill_viridis_d() + scale_color_viridis_d()
-    print(gg)
+    print(bargraph_sample[[one_sample_type]])
 }
+```
+
+# Heatmaps (using the 10% most abundant taxa)
+
+## Define function
+```{r}
+phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
+     total_per_sample <- max(sample_sums(ps))
+     ps <- filter_taxa(ps, function(x) sum(x > total_per_sample*contrib_min) > 0, TRUE)
+     ps <- phyloseq_normalize_median(ps)
+     return(ps)
+}
+```
+
+
+# Class
+```{r fig.height=8, fig.width=12}
+  heatmap_class <- list()
+
+  for (one_sample_type in sample_type_all) { 
+    
+    ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "class") %>% 
+      phyloseq_keep_abundant(contrib_min=0.1)
+      
+    heatmap_class[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
+                 taxa.label = "class",  taxa.order="division",
+                 sample.label = "sample_label", sample.order="sample_label",
+                 low="beige", high="red", na.value="beige", 
+                 title=one_sample_type)
+    
+    # plot(heatmap(otu_table(ps_heat)))
+    
+    print(heatmap_class[[one_sample_type]] )
+  
+  }
+```
+
+# Genus
+```{r fig.height=8, fig.width=12}
+  heatmap_genus <- list()
+
+  for (one_sample_type in sample_type_all) { 
+    
+    ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "genus") %>% 
+      phyloseq_keep_abundant(contrib_min=0.1)
+      
+    heatmap_genus[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
+                 taxa.label = "genus",  taxa.order="division",
+                 sample.label = "sample_label", sample.order="sample_label",
+                 low="beige", high="red", na.value="beige", 
+                 title=one_sample_type)
+    
+    print(heatmap_genus[[one_sample_type]] )
+  
+  }
 ```
 
