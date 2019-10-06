@@ -56,10 +56,12 @@ opts_knit$set(width=75)
 | 18 | Antar_2015_18S_V4_sorted |
 	
 * Only use asv for which supergroup_boot >= 90
+* Only keep photosynthetic groups abd exclude dinoflagellates
 
 ```{r, message=FALSE}
   rm(list = ls())
   sample_type <- c("18S filter", "16S plastid", "18S sort")
+  taxon_selected <- c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")
   
   asv <- list()
   ps <- list()
@@ -69,6 +71,8 @@ opts_knit$set(width=75)
   i <- 16
   for (one_sample_type in sample_type) {
       asv[[one_sample_type]] <- metapr2_export_asv(dataset_id_selected = i, 
+                                                   taxo_level = division, 
+                                                   taxo_name = taxon_selected,
                                                    export_phyloseq = FALSE, 
                                                    export_xls = FALSE,
                                                    boot_min = 90, 
@@ -105,15 +109,12 @@ opts_knit$set(width=75)
 * Only use Station 6 (not 14)
 * Only surface considered (5 m)
 * Do not consider TFF samples 
-* Only keep photosynthetic groups abd exclude dinoflagellates
 * Very important, must remove taxa that are not present in the filtered samples
 
 ```{r}
   for (one_sample_type in sample_type) {
 
       ps[[one_sample_type]] <- ps[[one_sample_type]] %>% 
-        subset_taxa((division %in% c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")) |
-                    (class == "Filosa-Chlorarachnea")) %>% 
         subset_samples(station_id=="6") %>% 
         subset_samples(depth_level=="surface") %>% 
         subset_samples(is.na(sample_concentration)) %>%
@@ -258,16 +259,6 @@ opts_knit$set(width=75)
 
 # Heatmaps (using the 10% most abundant taxa)
 
-## Define function
-```{r}
-phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
-     total_per_sample <- max(sample_sums(ps))
-     ps <- filter_taxa(ps, function(x) sum(x > total_per_sample*contrib_min) > 0, TRUE)
-     ps <- phyloseq_normalize_median(ps)
-     return(ps)
-}
-```
-
 
 ## Class
 ```{r fig.height=6, fig.width=9}
@@ -276,13 +267,14 @@ phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
   for (one_sample_type in sample_type_all[4:11]) { 
     
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "class") %>% 
-      phyloseq_keep_abundant(contrib_min=0.1)
+      phyloseq_filter_abundant_taxa(fraction_min=0.1)
       
     heatmap_class[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                  taxa.label = "class",  taxa.order="division",
                  sample.label = "sample_label", sample.order="sample_label",
-                 low="beige", high="red", na.value="beige", 
-                 title=one_sample_type)
+                 low="beige", high="red", na.value="beige", trans = scales::log_trans(10),
+                 title=one_sample_type) + 
+                 xlab("") + ylab("")
     
     # plot(heatmap(otu_table(ps_heat)))
     
@@ -298,7 +290,7 @@ phyloseq_keep_abundant <- function(ps,contrib_min=0.1){
   for (one_sample_type in sample_type_all[4:11]) { 
     
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "genus") %>% 
-      phyloseq_keep_abundant(contrib_min=0.1)
+      phyloseq_filter_abundant_taxa(fraction_min=0.1)
       
     heatmap_genus[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                  taxa.label = "genus",  taxa.order="division",
