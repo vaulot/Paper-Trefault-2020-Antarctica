@@ -73,13 +73,17 @@ opts_knit$set(width=75)
       asv[[one_sample_type]] <- metapr2_export_asv(dataset_id_selected = i, 
                                                    taxo_level = division, 
                                                    taxo_name = taxon_selected,
-                                                   export_phyloseq = FALSE, 
-                                                   export_xls = FALSE,
+                                                   export_phyloseq = TRUE, 
+                                                   export_long_xls = FALSE,
+                                                   export_wide_xls = FALSE,
+                                                   export_fasta = FALSE,
+                                                   export_sample_xls = TRUE,
                                                    boot_min = 90, 
                                                    boot_level = supergroup_boot,
                                                    directory = "../dada2/") 
 
-      ps[[one_sample_type]] <- asv[[one_sample_type]][["ps"]]
+      ps[[one_sample_type]] <- asv[[one_sample_type]][["ps"]] 
+      
   # Label samples with date 
       sample_data(ps[[one_sample_type]])$sample_label <- as.character(sample_data(ps[[one_sample_type]])$date)
       
@@ -104,30 +108,7 @@ opts_knit$set(width=75)
 ```
 
 
-# Filtration
 
-* Only use Station 6 (not 14)
-* Only surface considered (5 m)
-* Do not consider TFF samples 
-* Very important, must remove taxa that are not present in the filtered samples
-
-```{r}
-  for (one_sample_type in sample_type) {
-
-      ps[[one_sample_type]] <- ps[[one_sample_type]] %>% 
-        subset_samples(station_id=="6") %>% 
-        subset_samples(depth_level=="surface") %>% 
-        subset_samples(is.na(sample_concentration)) %>%
-        filter_taxa(function(x) sum(x) > 0 , TRUE)
-      
-      
-      print(glue("Phyloseq - {one_sample_type}"))
-      print(ps[[one_sample_type]] )
-      cat("============================\n")
-      
-  }
-
-```
 # Get the different fraction separately
 
 ```{r, message=FALSE}
@@ -176,12 +157,53 @@ opts_knit$set(width=75)
   
 
 ```
+# Surface samples
 
-# Normalize and transform to long form
+* Only use Station 6 (not 14)
+* Only surface considered (5 m)
+* Do not consider TFF samples 
+* Very important, must remove taxa that are not present in the filtered samples
+
+```{r}
+  sample_type_surface <- str_c(sample_type_all, " surface")
+  
+  for (one_sample_type in sample_type_all) {
+      
+      one_sample_type_surface = str_c(one_sample_type, " surface")
+
+      ps[[one_sample_type_surface]] <- ps[[one_sample_type]] %>% 
+        subset_samples(station_id=="6") %>% 
+        subset_samples(depth_level=="surface") %>% 
+        subset_samples(is.na(sample_concentration)) %>%
+        filter_taxa(function(x) sum(x) > 0 , TRUE)
+      
+      # Rename the samples
+      
+      if (!str_detect(one_sample_type_surface, "sort")){
+        sample_names(ps[[one_sample_type_surface]]) <- str_c(as.character(sample_data(ps[[one_sample_type_surface]])$date), 
+                                               as.character(sample_data(ps[[one_sample_type_surface]])$depth), "m",
+                                               as.character(sample_data(ps[[one_sample_type_surface]])$fraction_min),
+                                               sep="_")
+      } else {
+        sample_names(ps[[one_sample_type_surface]]) <- str_c(as.character(sample_data(ps[[one_sample_type_surface]])$date), 
+                                       as.character(sample_data(ps[[one_sample_type_surface]])$depth), "m",
+                                       as.character(sample_data(ps[[one_sample_type_surface]])$fraction_name),
+                                       sep="_")
+      }
+      
+      
+      print(glue("Phyloseq - {one_sample_type_surface}"))
+      print(ps[[one_sample_type_surface]] )
+      cat("============================\n")
+      
+  }
+
+```
+## Normalize and transform to long form
 
 ```{r, message=FALSE}
 
-  for (one_sample_type in sample_type_all) {
+  for (one_sample_type in sample_type_surface) {
     
       cat(one_sample_type)
       cat("\n============================")  
@@ -198,7 +220,7 @@ opts_knit$set(width=75)
 ```
 
 
-# Treemaps
+## Treemaps
 
 
 ```{r fig.height=6, fig.width=6}
@@ -206,7 +228,7 @@ opts_knit$set(width=75)
   treemap_class <- list()
   treemap_genus <- list()
   
-  for (one_sample_type in sample_type_all) {
+  for (one_sample_type in sample_type_surface) {
     
       treemap_class[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]], 
                                                                      division, class, 
@@ -219,7 +241,7 @@ opts_knit$set(width=75)
 
 ```
 
-# ASVs bargraphs
+## ASVs bargraphs
 
 
 ```{r, fig.height=8, fig.width=8}
@@ -229,7 +251,7 @@ opts_knit$set(width=75)
   bargraph_asv <- list()
   bargraph_species <- list()
   
-  for (one_sample_type in sample_type_all) {
+  for (one_sample_type in sample_type_surface) {
     
       bargraph_asv [[one_sample_type]] <- phyloseq_long_bargraph(long[[one_sample_type]], text_scaling = 0.75,n_bars = 20, use_asv = TRUE, 
                                                                 title = one_sample_type)
@@ -240,13 +262,13 @@ opts_knit$set(width=75)
 
 
 ```
-# Barplots per sample
+## Barplots per sample
 
 ```{r fig.height=8, fig.width=8}
 
   bargraph_sample <- list()
 
-  for (one_sample_type in sample_type_all[4:11]) { 
+  for (one_sample_type in sample_type_surface[4:11]) { 
     
     bargraph_sample[[one_sample_type]] <- plot_bar(ps[[one_sample_type]], x = "sample_label", fill = "class") + 
         geom_bar(aes(color = class, fill = class), stat = "identity", position = "stack") + 
@@ -257,19 +279,23 @@ opts_knit$set(width=75)
 }
 ```
 
-# Heatmaps (using the 10% most abundant taxa)
+## Heatmaps
 
+Filter : Dictyo / Chrysophyceae /Pelago /Bacili / Crypto / Pyrami / Mamiello
 
-## Class
+### Class
+
+#### Most abundant 10%
+
 ```{r fig.height=6, fig.width=9}
-  heatmap_class <- list()
+  heatmap_class_abundant <- list()
 
-  for (one_sample_type in sample_type_all[4:11]) { 
+  for (one_sample_type in sample_type_surface[4:11]) { 
     
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "class") %>% 
       phyloseq_filter_abundant_taxa(fraction_min=0.1)
       
-    heatmap_class[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
+    heatmap_class_abundant[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                  taxa.label = "class",  taxa.order="division",
                  sample.label = "sample_label", sample.order="sample_label",
                  low="beige", high="red", na.value="beige", trans = scales::log_trans(10),
@@ -278,51 +304,139 @@ opts_knit$set(width=75)
     
     # plot(heatmap(otu_table(ps_heat)))
     
-    print(heatmap_class[[one_sample_type]] )
+    print(heatmap_class_abundant[[one_sample_type]] )
+  
+  }
+
+```
+#### Selected
+```{r fig.height=6, fig.width=9}
+
+class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacillariophyta", "Cryptophyceae", "Pyramimonadales", "Mamiellophyceae")
+
+  heatmap_class_selected <- list()
+
+  for (one_sample_type in sample_type_surface[4:11]) { 
+    
+    ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "class") %>% 
+      subset_taxa(class %in% class_selected )
+    
+    # Try to order by division and class...
+    # tax_table <- data.frame(tax_table(ps_heat)@.Data)
+    # taxa_names(ps_heat) <- str_c(tax_table$division, tax_table$class, sep=" - ") 
+      
+   gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
+                       taxa.label = "class",  taxa.order="class",
+                       sample.label = "sample_label", sample.order="sample_label",
+                       low="beige", high="red", na.value="beige",
+                       title=one_sample_type) + 
+                       xlab("") + ylab("") +
+                       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1)) 
+    
+    if (str_detect(one_sample_type,"18S filter 0.2")) gg <- gg + geom_vline(xintercept = c(6.5, 9.5, 12.5))
+
+    if (one_sample_type == "18S filter 3 um surface") gg <- gg +  geom_vline(xintercept = c(8.5, 10.5, 13.5))
+
+    if (one_sample_type == "18S filter 20 um surface") gg <- gg +  geom_vline(xintercept = c(8.5, 9.5))
+
+    
+    # plot(heatmap(otu_table(ps_heat)))
+    # , trans = scales::log_trans(10)
+    
+    print(gg)
+    
+    heatmap_class_selected[[one_sample_type]] <- gg
   
   }
 ```
 
-## Genus
-```{r fig.height=6, fig.width=9}
-  heatmap_genus <- list()
 
-  for (one_sample_type in sample_type_all[4:11]) { 
+## Species
+
+### Most abundant
+
+```{r fig.height=6, fig.width=9}
+  heatmap_genus_abundant <- list()
+
+  for (one_sample_type in sample_type_surface[4:11]) { 
     
-    ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "genus") %>% 
+    ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "species") %>% 
       phyloseq_filter_abundant_taxa(fraction_min=0.1)
       
-    heatmap_genus[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
-                 taxa.label = "genus",  taxa.order="division",
+    heatmap_genus_abundant[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
+                 taxa.label = "species",  taxa.order="division",
                  sample.label = "sample_label", sample.order="sample_label",
                  low="beige", high="red", na.value="beige", 
                  title=one_sample_type)
     
-    print(heatmap_genus[[one_sample_type]] )
+    print(heatmap_genus_abundant[[one_sample_type]] )
+  
+  }
+```
+### Selected
+
+```{r fig.height=6, fig.width=9}
+
+species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Minidiscus_sp.", 
+                      "Porosira_glacialis", "Micromonas_polaris", "Geminigera_cryophila", 
+                      "Bathycoccus_prasinos", "Phaeocystis_antarctica", "Pyramimonas_gelidicola", 
+                      "Chaetoceros_neogracilis", "Micromonas_clade_B3")
+
+  heatmap_species_selected <- list()
+
+  for (one_sample_type in sample_type_surface[4:11]) { 
+    
+    ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "species") %>% 
+      subset_taxa(species %in% species_selected )
+    
+    # Try to order by division and species...
+    # tax_table <- data.frame(tax_table(ps_heat)@.Data)
+    # taxa_names(ps_heat) <- str_c(tax_table$division, tax_table$species, sep=" - ") 
+      
+    gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
+                       taxa.label = "species",  taxa.order="class",
+                       sample.label = "sample_label", sample.order="sample_label",
+                       low="beige", high="red", na.value="beige",
+                       title=one_sample_type) + 
+                       xlab("") + ylab("") +
+                       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+      
+    if (str_detect(one_sample_type, "18S filter 0.2")) gg <- gg + geom_vline(xintercept = c(6.5, 9.5, 12.5))
+
+    if (one_sample_type == "18S filter 3 um surface") gg <- gg +  geom_vline(xintercept = c(8.5, 10.5, 13.5))
+
+    if (one_sample_type == "18S filter 20 um surface") gg <- gg +  geom_vline(xintercept = c(8.5, 9.5))
+    
+                
+    
+    # plot(heatmap(otu_table(ps_heat)))
+    # , trans = scales::log_trans(10)
+    
+    print(gg )
+    
+    heatmap_species_selected[[one_sample_type]] <- gg
   
   }
 ```
 
-
-
 # Figures
 
-## Figure 2
+## Figure 2 - Treemap
 
 ```{r fig.height=30, fig.width=15}
 
-treemap_18S_filt <- cowplot::plot_grid(treemap_class[["18S filter 0.2 um"]]$gg,
-                                       treemap_class[["18S filter 3 um"]]$gg,
-                                       treemap_class[["18S filter 20 um"]]$gg, 
+treemap_18S_filt <- cowplot::plot_grid(treemap_class[["18S filter 0.2 um surface"]]$gg,
+                                       treemap_class[["18S filter 3 um surface"]]$gg,
+                                       treemap_class[["18S filter 20 um surface"]]$gg, 
                                        ncol=1)
 
-treemap_18S_sort <- cowplot::plot_grid(treemap_class[["18S sort pico"]]$gg,
-                                       treemap_class[["18S sort nano"]]$gg, 
+treemap_18S_sort <- cowplot::plot_grid(treemap_class[["18S sort pico surface"]]$gg,
+                                       treemap_class[["18S sort nano surface"]]$gg, 
                                        ncol=1)
 
-treemap_16S_filt <- cowplot::plot_grid(treemap_class[["16S plastid 0.2 um"]]$gg,
-                                       treemap_class[["16S plastid 3 um"]]$gg,
-                                       treemap_class[["16S plastid 20 um"]]$gg, 
+treemap_16S_filt <- cowplot::plot_grid(treemap_class[["16S plastid 0.2 um surface"]]$gg,
+                                       treemap_class[["16S plastid 3 um surface"]]$gg,
+                                       treemap_class[["16S plastid 20 um surface"]]$gg, 
                                        ncol=1)
 
 fig_2 <- cowplot::plot_grid(bargraph_species[["18S filter"]]$gg, treemap_18S_filt,
@@ -331,5 +445,233 @@ fig_2 <- cowplot::plot_grid(bargraph_species[["18S filter"]]$gg, treemap_18S_fil
                             ncol=2,rel_widths = c(2,1))
 
 fig_2
+```
+
+
+## Figure 4 - Heatmap
+
+```{r fig.height=12, fig.width=25}
+fig_3 <- cowplot::plot_grid(heatmap_class_selected[["18S filter 0.2 um surface"]],
+                           heatmap_class_selected[["18S filter 3 um surface"]],
+                           heatmap_class_selected[["18S filter 20 um surface"]],
+                           heatmap_species_selected[["18S filter 0.2 um surface"]],
+                           heatmap_species_selected[["18S filter 3 um surface"]],
+                           heatmap_species_selected[["18S filter 20 um surface"]], 
+                           nrow=2, ncol=3)
+fig_3
+```
+
+
+# CARBOM code
+
+```{r}
+# === 
+# Convert from phyloseq to vegan
+# ===
+
+# convert the sample_data() within a phyloseq object to a vegan compatible data object
+pssd2veg <- function(physeq) {
+  sd <- sample_data(physeq)
+  return(as(sd,"data.frame"))
+}
+
+# convert the otu_table() within a phyloseq object to a vegan compatible data object
+psotu2veg <- function(physeq) {
+  OTU <- otu_table(physeq)
+  if (taxa_are_rows(OTU)) {
+    OTU <- t(OTU)
+  }
+  return(as(OTU, "matrix"))
+}
+
+# Create also a function to rename the samples and the taxa...
+
+
+# =======================================================
+# 18S Compute matrixes of abundances for OTUs for autotrophs
+#-----------------------------------------------------------
+
+# Reshape the abundance matrix in condensed form 
+  # Keep only necessary columns
+  otu_matrix <- otu_melt_auto %>% transmute(sample_label, otu_label, sequence_number, Final_Taxo2, Final_Taxo3, Final_Taxo4, Final_Taxo7, Final_Taxo8)
+  # Reshape in wide form, sort by taxonomy and then remove the taxonomy information
+  otu_matrix <- otu_matrix %>% 
+                spread(sample_label, sequence_number) %>% 
+                arrange(Final_Taxo2, Final_Taxo3, Final_Taxo4, otu_label ) %>% 
+                select (-Final_Taxo2, -Final_Taxo3, -Final_Taxo4, -Final_Taxo7, -Final_Taxo8)
+  
+# Provide row.names using the labels for the samples  
+  row.names(otu_matrix)=otu_matrix$otu_label
+  
+# Remove the column that contains the labels
+  otu_matrix=select(otu_matrix, -otu_label)  
+
+# Transpose the matrix
+  otu_matrix=t(otu_matrix)  
+
+    
+# Normalize the data per sample
+  otu_matrix_relative <- otu_matrix/rowSums(otu_matrix)
+  
+# determine the maximum relative abundance for each column
+  maxab <- apply(otu_matrix_relative, 2, max)  # 1 indicates row and 2 columns
+  
+# remove the otus with less than 20 % as their maximum relative abundance -> for heatmaps
+  otu_low <- names(which(maxab < 0.20))
+  otu_abund <- names(which(maxab >= 0.20))
+  otu_matrix_relative_abund <- otu_matrix_relative[, -which(colnames(otu_matrix_relative) %in% otu_low)]
+  otu_matrix_abund <- otu_matrix[, -which(colnames(otu_matrix_relative) %in% otu_low)]
+
+# Export matrices
+  write.table(otu_matrix_relative, file="otu_matrix_relative.txt",
+              row.names = TRUE,  col.names = TRUE, sep="\t", quote=FALSE)
+  write.table(otu_matrix_relative_abund, file="otu_matrix_relative_abund.txt",
+              row.names = TRUE,  col.names = TRUE, sep="\t", quote=FALSE)
+
+# Do a small table with the information from major OTUs
+  otu_table_paper <- otu_table %>% filter(otu_label %in% otu_abund) %>% transmute(otu, otu_total, Division=Final_Taxo3, Class=Final_Taxo4, Genus=Final_Taxo7, Species=Final_Taxo8, BLAST_best_Accession, BLAST_best_identity, BLAST_best_Description) %>% arrange(otu)
+  write.table(otu_table_paper, file="otu_18S_table_paper.txt", sep = "\t", row.names = FALSE, quote=FALSE)
+
+# Number of OTU per class
+  otu_table_class <- otu_table %>% group_by(Final_Taxo3, Final_Taxo4) %>% summarize(number_of_otu = n(), number_of_reads = sum(otu_total)) 
+  
+# =======================================================
+# 18S  - Similarity Matrix for samples  : Compute it for different metrix 
+#-----------------------------------------------------------
+  
+# Compute dissimil between samples using Bray-Curtis on non normalized matrix (can lead to problems - see paper in Nature Microbio reviews)
+  sample_dissimil_bray=vegdist(otu_matrix_abund,method = "bray", na.rm = F)
+  
+# Compute dissimil between otus using Bray-Curtis
+  otu_dissimil_bray=vegdist(t(otu_matrix_abund),method = "bray", na.rm = F)
+  
+# Change from dissimil to simil and transform to matrix
+  otu_simil_bray <- as.matrix(1 - otu_dissimil_bray)
+
+# =======================================================
+# 18S - Compute Shannon diversity based on otu 
+#-----------------------------------------------------------
+
+  otu_diversity<-as.data.frame(vegan::diversity(otu_matrix, "shannon"))
+
+# =======================================================
+#  18S - Fig. 4 - Heat maps based on tutorial  : #  http://www.molecularecologist.com/2013/08/making-heatmaps-with-r-for-microbiome-analysis/  
+#-----------------------------------------------------------
+
+  
+# Do average linkage hierarchical clustering of the rows. Other options are 'aver', 'complete' or 'single'
+  sample_cluster=hclust(sample_dissimil_bray, method = "complete")
+  plot(sample_cluster, cex=1)
+
+# Do average linkage hierarchical clustering of the otus. Other options are 'complete' or 'single'
+  otu_cluster <- hclust(otu_dissimil_bray, "complete")
+  plot(otu_cluster, cex=1)
+
+# Do the heatmap with the samples and otu clustered
+  heatmap(as.matrix(otu_matrix_relative_abund), Rowv = as.dendrogram(sample_cluster), Colv = as.dendrogram(otu_cluster), col = scaleyellowred, margins = c(12, 4))
+  
+  
+# Do the heatmap with the samples only clustered
+  heatmap(as.matrix(otu_matrix_relative_abund), Rowv = as.dendrogram(sample_cluster), Colv = NA, col = scaleyellowred, margins = c(20, 4))
+
+
+# Fig. 4 - Do the heatmap with the samples only clustered Better to provide the scale
+  pdf("./pdf_figures_2.0/Fig_4 Heatmap 18S  2.0.pdf",width = 8, height = 10, useDingbats=FALSE)
+  heatmap.2(as.matrix(otu_matrix_relative_abund), 
+            Rowv = as.dendrogram(sample_cluster), Colv = FALSE, 
+            dendrogram="row", col = scaleyellowred, trace="none", 
+            key = TRUE, density.info="none", cexRow=0.8, cexCol=0.8, margins = c(15, 10), 
+            lmat = rbind(c(0,3),c(2,1),c(0,4)), lwid = c(1,4), lhei = c(0.2,4,0.6), srtCol=45, 
+            key.title= NA , key.xlab = "Relative abundance")
+  dev.off()
+  
+
+# 18S - Stats - MSDS based using vegan on Bray distance of relative abundance --------
+
+
+# Create environmental table to put on msds
+
+  envdata_table <- select(filter(samples,Select_18S_nifH == "Yes"), sample_illumina, depth, 
+                          transect_distance, phosphates, silicates, nitrates, temperature, 
+                          fluorescence, salinity, fraction, 
+                          bacteria, prochlorococcus, synechococcus, picoeukaryotes, nanoeukaryotes)
+  envdata_table <- envdata_table %>%  mutate (N_P =nitrates/phosphates) %>% 
+                                      select(-bacteria, -fraction, -nitrates, -phosphates, - silicates)
+  
+  row.names(envdata_table) <- envdata_table$sample_illumina
+  envdata_table <- select(envdata_table, -sample_illumina)
+    # write.table(envdata_table, file="envdata_table.txt", 
+    #           row.names = TRUE,  col.names = TRUE, sep="\t", quote=FALSE)
+  # envdata_table <- envdata_table[ order(row.names(envdata_table)), ]  # Note if reorder the rows then the row name disappear...
+  
+  # Rename the row names to be shorter
+  otu_matrix_relative_abund_msds <- otu_matrix_relative_abund
+  row_names_short <- str_split_fixed(row.names(otu_matrix_relative_abund_msds),"_", n=4)
+  row.names(otu_matrix_relative_abund_msds) <- row_names_short[,4]
+  otu_matrix_relative_abund_msds <- otu_matrix_relative_abund_msds[ order(row.names(otu_matrix_relative_abund_msds)), ]
+  
+# Compare the different distances for separation - Bray Curtis appears best
+  rankindex(envdata_table, otu_matrix_relative_abund_msds)
+  
+#         euc         man         gow         bra         kul 
+# -0.10460145 -0.12017731 -0.15173360 -0.04435000 -0.04604831 
+  
+# Compute MSDS
+  otu_matrix_relative_abund.mds <- metaMDS(otu_matrix_relative_abund_msds, trace = TRUE) 
+  otu_matrix_relative_abund.mds
+  # plot(otu_matrix_relative_abund.mds, type = "t", display="species")
+  plot(otu_matrix_relative_abund.mds, type = "t", display="sites")
+  # plot(otu_matrix_relative_abund.mds, type = "p", display="sites")
+
+# Fit environmental variables including Pico and Nano
+  otu_matrix_relative_abund.ef <- envfit(otu_matrix_relative_abund.mds, envdata_table, permu = 999, na.rm = TRUE)
+  otu_matrix_relative_abund.ef
+  plot(otu_matrix_relative_abund.ef, p.max = 1)
+  
+# global Multidimensional Scaling using monoMDS
+# 
+# Data:     otu_matrix_relative_abund_msds 
+# Distance: bray 
+# 
+# Dimensions: 2 
+# Stress:     0.2500929 
+# Stress type 1, weak ties
+# No convergent solutions - best solution after 20 tries
+# Scaling: centring, PC rotation, halfchange scaling 
+# Species: expanded scores based on 'otu_matrix_relative_abund_msds'***VECTORS
+
+#                      NMDS1    NMDS2     r2 Pr(>r)  
+# depth             -0.99531  0.09678 0.0578  0.370  
+# transect_distance  0.58527 -0.81084 0.0890  0.192  
+# temperature        0.99968 -0.02541 0.0476  0.459  
+# fluorescence      -0.97532  0.22081 0.2018  0.017 *
+# salinity           0.13213 -0.99123 0.0430  0.475  
+# prochlorococcus    0.09546 -0.99543 0.0458  0.441  
+# synechococcus     -0.62789  0.77830 0.0487  0.409  
+# picoeukaryotes    -0.96605 -0.25837 0.0098  0.838  
+# nanoeukaryotes    -0.62715  0.77890 0.0788  0.243  
+# N_P               -0.65297 -0.75738 0.0346  0.524  
+# ---
+# Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+# Permutation: free
+# Number of permutations: 999 
+  
+
+# PCA (principal compoment) analysis -----------------------------------------------------
+
+otu_matrix_relative_abund.rda <- rda(otu_matrix_relative_abund_msds, scale=TRUE)
+otu_matrix_relative_abund.rda
+plot(otu_matrix_relative_abund.rda)
+
+# CCA (correspondencen) analysis -----------------------------------------------------
+
+otu_matrix_relative_abund.cca <- cca(otu_matrix_relative_abund_msds, scale=TRUE)
+otu_matrix_relative_abund.cca
+plot(otu_matrix_relative_abund.cca)
+
+# Mutiple correlation -----------------------------------------------------
+otu_matrix_relative_abund_msds.cor <- corr.test(envdata_table, otu_matrix_relative_abund_msds, use="na.or.complete", method="spearman")
+write.table(otu_matrix_relative_abund_msds.cor$r, file="carbom_18S_mutiple_correlation.txt", sep="\t", quote = FALSE)
+write.table(otu_matrix_relative_abund_msds.cor$p, file="carbom_18S_mutiple_correlation_pvalue.txt", sep="\t", quote = FALSE)
 ```
 
