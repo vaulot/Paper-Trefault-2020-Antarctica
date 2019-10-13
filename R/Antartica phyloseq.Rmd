@@ -328,7 +328,7 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
    gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                        taxa.label = "class",  taxa.order="class",
                        sample.label = "sample_label", sample.order="sample_label",
-                       low="beige", high="red", na.value="beige",
+                       low="beige", high="red", na.value="gray95",
                        title=one_sample_type) + 
                        xlab("") + ylab("") +
                        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1)) 
@@ -396,7 +396,7 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
     gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                        taxa.label = "species",  taxa.order="class",
                        sample.label = "sample_label", sample.order="sample_label",
-                       low="beige", high="red", na.value="beige",
+                       low="beige", high="red", na.value="gray95",
                        title=one_sample_type) + 
                        xlab("") + ylab("") +
                        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
@@ -418,6 +418,64 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
   
   }
 ```
+
+# Vertical profile 
+
+* Station 6 - 2015-01-16 
+* Very important, must remove taxa that are not present in the filtered samples
+* Do not use the TFF
+
+```{r}
+  sample_type_profile <- str_c(sample_type_all, " profile")
+  
+  for (one_sample_type in sample_type_all) {
+      
+      one_sample_type_profile = str_c(one_sample_type, " profile")
+
+      ps[[one_sample_type_profile]] <- ps[[one_sample_type]] %>% 
+        subset_samples(station_id=="6") %>% 
+        subset_samples(date =="2015-01-16") %>% 
+        subset_samples(is.na(sample_concentration)) %>%
+        filter_taxa(function(x) sum(x) > 0 , TRUE)
+      
+      # Rename the samples
+      
+      if (!str_detect(one_sample_type_profile, "sort")){
+        sample_names(ps[[one_sample_type_profile]]) <- str_c(as.character(sample_data(ps[[one_sample_type_profile]])$depth), "m",
+                                               as.character(sample_data(ps[[one_sample_type_profile]])$fraction_min),
+                                               sep="_")
+      } else {
+        sample_names(ps[[one_sample_type_profile]]) <- str_c(as.character(sample_data(ps[[one_sample_type_profile]])$depth), "m",
+                                       as.character(sample_data(ps[[one_sample_type_profile]])$fraction_name),
+                                       sep="_")
+      }
+      
+      
+      print(glue("Phyloseq - {one_sample_type_profile}"))
+      print(ps[[one_sample_type_profile]] )
+      cat("============================\n")
+      
+  }
+
+```
+
+## Barplots per sample
+
+```{r fig.height=8, fig.width=8}
+
+  bargraph_sample <- list()
+
+  for (one_sample_type in sample_type_profile[4:11]) { 
+    
+    bargraph_sample[[one_sample_type]] <- plot_bar(ps[[one_sample_type]], x = "depth", fill = "class") + 
+        geom_bar(aes(color = class, fill = class), stat = "identity", position = "stack") + 
+        ggtitle(str_c("Class level - ", one_sample_type)) + theme(axis.text.y = element_text(size = 10)) + 
+        theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) + coord_flip() + 
+        scale_fill_viridis_d() + scale_color_viridis_d()
+    print(bargraph_sample[[one_sample_type]])
+}
+```
+
 
 # Figures
 
