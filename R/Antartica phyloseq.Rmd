@@ -21,6 +21,8 @@ output:
    library(readr)
    library(maps)
    library(glue)
+   library(readxl)
+   library(rlang)
    
    library(phyloseq)
 
@@ -42,9 +44,21 @@ opts_chunk$set(echo=TRUE,
                comment=NA,
                message=FALSE,
                warning=FALSE,
-               eval = TRUE)
+               eval = TRUE,
+               rows.print=50)
 opts_knit$set(width=75)
 ```
+
+## Read the colors
+
+```{r define_colors}
+
+ class_colors.df <- read_excel("class_colors.xlsx", sheet = "classes")
+  
+ class_colors <-structure(class_colors.df$color_name,.Names=class_colors.df$class) 
+ 
+```
+
 
 # Get the Antarctica ASVs
 
@@ -59,7 +73,7 @@ opts_knit$set(width=75)
 * Only keep photosynthetic groups abd exclude dinoflagellates
 
 ```{r, message=FALSE}
-  rm(list = ls())
+  # rm(list = ls())
   sample_type <- c("18S filter", "16S plastid", "18S sort")
   taxon_selected <- c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")
   
@@ -77,7 +91,7 @@ opts_knit$set(width=75)
                                                    export_long_xls = FALSE,
                                                    export_wide_xls = FALSE,
                                                    export_fasta = FALSE,
-                                                   export_sample_xls = TRUE,
+                                                   export_sample_xls = FALSE,
                                                    boot_min = 90, 
                                                    boot_level = supergroup_boot,
                                                    directory = "../dada2/") 
@@ -219,6 +233,25 @@ opts_knit$set(width=75)
 
 ```
 
+## List of classes
+
+```{r fig.height=6, fig.width=6}
+
+  classes <- data.frame(division = NULL, class= NULL)
+  
+  for (one_sample_type in sample_type_surface[1:3]) {
+      classes <- bind_rows(classes, select(long[[one_sample_type]], division, class))
+  }
+
+      classes <- classes %>% 
+        distinct(division, class) %>% 
+        arrange(division, class)
+      
+      # print(classes, n=50)
+      knitr::kable(classes)
+
+```
+
 
 ## Treemaps
 
@@ -232,7 +265,8 @@ opts_knit$set(width=75)
     
       treemap_class[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]], 
                                                                      division, class, 
-                                                                     str_c(one_sample_type, " - Class" ))
+                                                                     str_c(one_sample_type, " - Class" ),
+                                                                     colors = class_colors)
       treemap_genus[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]], 
                                                                      class, genus, 
                                                                      str_c(one_sample_type, " - Genus" ))
@@ -328,10 +362,11 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
    gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                        taxa.label = "class",  taxa.order="class",
                        sample.label = "sample_label", sample.order="sample_label",
-                       low="beige", high="red", na.value="gray95",
+                       low="beige", high="red", na.value="gray95", trans=NULL, 
                        title=one_sample_type) + 
                        xlab("") + ylab("") +
-                       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1)) 
+                       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1)) +
+                       scale_fill_gradient(limits= c(0,30000), low="beige", high="red", na.value="gray95")
     
     if (str_detect(one_sample_type,"18S filter 0.2")) gg <- gg + geom_vline(xintercept = c(6.5, 9.5, 12.5))
 
@@ -377,10 +412,11 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
 
 ```{r fig.height=6, fig.width=9}
 
-species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Minidiscus_sp.", 
-                      "Porosira_glacialis", "Micromonas_polaris", "Geminigera_cryophila", 
-                      "Bathycoccus_prasinos", "Phaeocystis_antarctica", "Pyramimonas_gelidicola", 
-                      "Chaetoceros_neogracilis", "Micromonas_clade_B3")
+species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Minidiscus_sp.", "Chaetoceros_neogracilis",
+                      "Porosira_glacialis", "Coretrhon_inerme", "Palmaria_palmata", "Pseudo-nitzchia_seriata",
+                      "Micromonas_polaris",  "Micromonas_clade_B3","Bathycoccus_prasinos", "Pyramimonas_gelidicola", 
+                      "Geminigera_cryophila", "Pelagophyceae_XXX_sp." ,
+                      "Phaeocystis_antarctica")
 
   heatmap_species_selected <- list()
 
@@ -396,10 +432,11 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
     gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                        taxa.label = "species",  taxa.order="class",
                        sample.label = "sample_label", sample.order="sample_label",
-                       low="beige", high="red", na.value="gray95",
+                       low="beige", high="red", na.value="gray95", trans = NULL,
                        title=one_sample_type) + 
                        xlab("") + ylab("") +
-                       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))
+                       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1))+
+                       scale_fill_gradient(limits= c(0,20000), low="beige", high="red", na.value="gray95")
       
     if (str_detect(one_sample_type, "18S filter 0.2")) gg <- gg + geom_vline(xintercept = c(6.5, 9.5, 12.5))
 
@@ -418,6 +455,29 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
   
   }
 ```
+# NMDS
+
+
+## Apply to all samples
+
+```{r}
+  nmds_sample <- list()
+
+  for (one_sample_type in sample_type_surface[1:3]) { 
+    
+    one_ps <- ps[[one_sample_type]] %>% 
+      tax_glom(taxrank = "species") 
+    
+    nmds_sample[[one_sample_type]] <- phyloseq_nmds(one_ps, 
+                                                    title=one_sample_type, 
+                                                    sample_color = season, 
+                                                    sample_shape = fraction_name )
+  }
+
+
+
+```
+
 
 # Vertical profile 
 
@@ -425,6 +485,7 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
 * Very important, must remove taxa that are not present in the filtered samples
 * Do not use the TFF
 
+## Filter the data
 ```{r}
   sample_type_profile <- str_c(sample_type_all, " profile")
   
@@ -436,7 +497,8 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
         subset_samples(station_id=="6") %>% 
         subset_samples(date =="2015-01-16") %>% 
         subset_samples(is.na(sample_concentration)) %>%
-        filter_taxa(function(x) sum(x) > 0 , TRUE)
+        filter_taxa(function(x) sum(x) > 0 , TRUE) %>% 
+        phyloseq_normalize_median()
       
       # Rename the samples
       
@@ -459,7 +521,7 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
 
 ```
 
-## Barplots per sample
+## Barplots per depth
 
 ```{r fig.height=8, fig.width=8}
 
@@ -471,10 +533,272 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
         geom_bar(aes(color = class, fill = class), stat = "identity", position = "stack") + 
         ggtitle(str_c("Class level - ", one_sample_type)) + theme(axis.text.y = element_text(size = 10)) + 
         theme(axis.text.x = element_text(angle = 0, hjust = 0.5)) + coord_flip() + 
-        scale_fill_viridis_d() + scale_color_viridis_d()
+        # scale_fill_viridis_d() + scale_color_viridis_d() + 
+        scale_fill_manual(values = class_colors) +  scale_color_manual(values = class_colors) + 
+        scale_x_reverse() + xlab("Depth (m)") + ylab("Reads") +
+        theme_bw()
+    
     print(bargraph_sample[[one_sample_type]])
 }
 ```
+
+# Compare the contributions of CLASS and GENUS using the different methods
+
+## Sample by sample comparison
+
+* Each dot corresponds to the relative contribution of the taxonomic level considered for a sample for which both 18S and 16S has been performed
+
+```{r fig.height=6, fig.width=10}
+long_genus_sample <- list()
+long_class_sample <- list()
+
+  for (one_sample_type in sample_type) {
+      ps_one <- phyloseq_normalize_percent(ps[[one_sample_type]])
+      
+      long_one <- phyloseq_transform_to_long(ps_one) %>%
+        group_by(date, station_id, depth, fraction_name, division, class, order, family, genus) %>%
+        summarize(n_reads = sum(n_reads)) %>% 
+        ungroup()
+      
+      long_genus_sample[[one_sample_type]] <- long_one 
+      
+      long_one <- phyloseq_transform_to_long(ps_one) %>%
+        group_by(date, station_id, depth, fraction_name, division, class) %>%
+        summarize(n_reads = sum(n_reads)) %>% 
+        ungroup()
+      
+      long_class_sample[[one_sample_type]] <- long_one 
+    }
+   
+ long_compare_genus_18S_16S <- full_join(rename(long_genus_sample[["18S filter"]], n_reads_18S_filter = n_reads),
+                                           rename(long_genus_sample[["16S plastid"]],n_reads_16S_plastid = n_reads))
+ 
+ ggplot(long_compare_genus_18S_16S, aes(x = n_reads_18S_filter, y = n_reads_16S_plastid)) +
+   geom_point(aes(color=class)) +
+   scale_color_manual(values = class_colors)
+ 
+ long_compare_class_18S_16S <- long_compare_genus_18S_16S %>% 
+        group_by(date, station_id, depth, fraction_name, division, class) %>%
+        summarize(n_reads_18S_filter = sum(n_reads_18S_filter, na.rm=TRUE), n_reads_16S_plastid = sum( n_reads_16S_plastid, na.rm=TRUE)) 
+ 
+  ggplot(long_compare_class_18S_16S, aes(x = n_reads_18S_filter, y = n_reads_16S_plastid)) +
+   geom_point(aes(color=class)) +
+   scale_color_manual(values = class_colors)
+   
+```
+
+# Global comparison of genera found with the 3 methods
+## Compute table of number of samples for each genus (rows) vs the three methods (columns)
+
+* Only keep
+  * 2015 samples because it is the only dataset for which we have the three types of samples
+  * 0.2 and 3 um fractions (to be comparable with sorting)
+* Remove genera that contains _X
+
+
+```{r  fig.height=6, fig.width=10}
+
+long_genus <- list()
+long_class   <- list()
+
+  for (one_sample_type in sample_type) {
+      long_one <- long_genus_sample[[one_sample_type]] %>%
+        filter(date >= as.Date("2015-01-01")) %>% 
+        filter(!str_detect(genus, "_X")) %>% 
+        filter(fraction_name != "> 20 um") %>% 
+        group_by(division, class, order, family, genus) %>%
+        summarize(n_reads = sum(n_reads), n_samples = n()) %>% 
+        rename_at(vars(contains("n_")), funs(str_c( .,str_replace_all(one_sample_type, " ", "_"), sep="_"))) %>% 
+        ungroup()
+      
+      long_genus[[one_sample_type]] <- long_one 
+
+      long_one <- long_class_sample[[one_sample_type]] %>%
+        filter(date >= as.Date("2015-01-01"))%>% 
+        filter(fraction_name != "> 20 um") %>%
+        group_by(division, class) %>%
+        summarize(n_reads = sum(n_reads), n_samples = n())%>% 
+        rename_at(vars(contains ("n_")), funs( str_c(., str_replace_all(one_sample_type, " ", "_"), sep="_")))  %>% 
+        ungroup()    
+      
+      long_class[[one_sample_type]] <- long_one 
+
+  }
+
+  long_class_comparison <- long_class %>% 
+    purrr::reduce(full_join)
+  long_genus_comparison <- long_genus %>% 
+    purrr::reduce(full_join)
+  
+  cat("Class not found in one type of sample\n")
+  cat("18S filter\n")
+   kable(filter(long_class_comparison, is.na(n_samples_18S_filter)))
+  cat("18S sort\n")
+   kable(filter(long_class_comparison, is.na(n_samples_18S_sort)))
+  cat("16S filter\n")
+   kable(filter(long_class_comparison, is.na(n_samples_16S_plastid)))
+   
+
+  cat("Genera  found in the three types of samples\n")
+  cat("18S filter\n")
+   kable(filter(long_genus_comparison, (!is.na(n_samples_18S_filter)& 
+                                        !is.na(n_samples_18S_sort) &
+                                        !is.na(n_samples_16S_plastid) )))
+
+  cat("Genera only found in one type of sample\n")
+  cat("18S filter\n")
+   kable(filter(long_genus_comparison, (is.na(n_samples_18S_sort) &
+                                        is.na(n_samples_16S_plastid) )))
+  cat("18S sort\n")
+   kable(filter(long_genus_comparison, (is.na(n_samples_18S_filter)&
+                                        is.na(n_samples_16S_plastid) )))
+  cat("16S filter\n")
+   kable(filter(long_genus_comparison, (is.na(n_samples_18S_filter)& 
+                                        is.na(n_samples_18S_sort)  )))
+ 
+   
+
+```
+
+## UpsetR plot
+* Needs only to have 0 and 1 in the matrix
+
+```{r}
+library(UpSetR)
+
+long_genus_upset <- long_genus_comparison %>% 
+  select(genus, contains("samples")) %>%
+  mutate_at(vars(contains("n_")), funs(case_when(is.na(.) ~ 0,
+                                                  TRUE ~ 1))) %>% 
+  rename_at(vars(contains("n_")), funs(str_replace(.,"n_samples_", ""))) %>% 
+  as.data.frame()
+
+upset(long_genus_upset, empty.intersections = "on", number.angles = 30, point.size = 3.5, line.size = 2, 
+    mainbar.y.label = "Genus Intersections", sets.x.label = "Genus per sample type", 
+    text.scale = c(1.3, 1.3, 1, 1, 2, 1.5))
+
+```
+
+# Comparison of genera found in the different fractions for 18S filter and 18S sorted   
+## Compute table of number of samples for each genus (rows) vs the three fractions (columns)
+
+* Only keep
+  * 2015 samples because it is the only dataset for which we have the three types of samples
+  * Genera that do not contain _X
+
+
+```{r  fig.height=6, fig.width=10}
+
+long_genus_fraction <- list()
+long_class_fraction <- list()
+
+  for (one_sample_type in sample_type[c(1,3)]) {
+      long_one <- long_genus_sample[[one_sample_type]] %>%
+        filter(date >= as.Date("2015-01-01")) %>% 
+        filter(!str_detect(genus, "_X")) %>%  
+        group_by(fraction_name, division, class, order, family, genus) %>%
+        summarize(n_samples = n()) %>% 
+        pivot_wider(names_from = fraction_name, values_from = n_samples) %>% 
+        ungroup()
+      
+      long_genus_fraction[[one_sample_type]] <- long_one 
+
+      long_one <- long_class_sample[[one_sample_type]] %>%
+        filter(date >= as.Date("2015-01-01")) %>% 
+        group_by(fraction_name, division, class) %>%
+        summarize(n_samples = n()) %>% 
+        pivot_wider(names_from = fraction_name, values_from = n_samples) %>% 
+        ungroup()
+      
+      long_class_fraction[[one_sample_type]] <- long_one 
+
+  }
+
+  long_class_fraction_comparison <- long_class_fraction %>% 
+    purrr::reduce(full_join)
+  long_genus_fraction_comparison <- long_genus_fraction %>% 
+    purrr::reduce(full_join)
+  
+   kable(long_class_fraction_comparison)
+   kable(long_genus_fraction_comparison)
+
+```
+
+## UpsetR plot
+* Needs only to have 0 and 1 in the matrix
+
+```{r fig.height=6, fig.width=10}
+library(UpSetR)
+
+long_genus_upset <- long_genus_fraction_comparison %>% 
+  mutate_if(is.numeric, funs(case_when(is.na(.) ~ 0,
+                                                  TRUE ~ 1))) %>% 
+  as.data.frame()
+
+upset(long_genus_upset, empty.intersections = "on", number.angles = 30, point.size = 3.5, line.size = 2, 
+    mainbar.y.label = "Genus Intersections", sets.x.label = "Genus per sample type", order.by = "freq",
+    text.scale = c(1.3, 1.3, 1, 1, 2, 1.5))
+
+```
+
+# Comparison of genera found in the different fractions for 18S filter   
+## Compute table of number of samples for each genus (rows) vs the three fractions (columns)
+
+* Only keep
+  * Genera that do not contain _X
+* We consider now ALL samples (will need to remove samples for which the > 20 um is missing)
+
+```{r  fig.height=6, fig.width=10}
+
+long_genus_fraction <- list()
+long_class_fraction <- list()
+
+  for (one_sample_type in sample_type[c(1)]) {
+      long_one <- long_genus_sample[[one_sample_type]] %>%
+        filter(!str_detect(genus, "_X")) %>%  
+        group_by(fraction_name, division, class, order, family, genus) %>%
+        summarize(n_samples = n()) %>% 
+        pivot_wider(names_from = fraction_name, values_from = n_samples) %>% 
+        ungroup()
+      
+      long_genus_fraction[[one_sample_type]] <- long_one 
+
+      long_one <- long_class_sample[[one_sample_type]] %>%
+        group_by(fraction_name, division, class) %>%
+        summarize(n_samples = n()) %>% 
+        pivot_wider(names_from = fraction_name, values_from = n_samples) %>% 
+        ungroup()
+      
+      long_class_fraction[[one_sample_type]] <- long_one 
+
+  }
+
+  long_class_fraction_comparison <- long_class_fraction[[one_sample_type]]
+
+  long_genus_fraction_comparison <- long_genus_fraction[[one_sample_type]] 
+
+   kable(long_class_fraction_comparison)
+   kable(long_genus_fraction_comparison)
+
+```
+
+## UpsetR plot
+* Needs only to have 0 and 1 in the matrix
+
+```{r fig.height=6, fig.width=10}
+library(UpSetR)
+
+long_genus_upset <- long_genus_fraction_comparison %>% 
+  mutate_if(is.numeric, funs(case_when(is.na(.) ~ 0,
+                                                  TRUE ~ 1))) %>% 
+  as.data.frame()
+
+upset(long_genus_upset, empty.intersections = "on", number.angles = 30, point.size = 3.5, line.size = 2, 
+    mainbar.y.label = "Genus Intersections", sets.x.label = "Genus per sample type", order.by = "freq",
+    text.scale = c(1.3, 1.3, 1, 1, 2, 1.5))
+
+```
+
 
 
 # Figures
@@ -489,7 +813,8 @@ treemap_18S_filt <- cowplot::plot_grid(treemap_class[["18S filter 0.2 um surface
                                        ncol=1)
 
 treemap_18S_sort <- cowplot::plot_grid(treemap_class[["18S sort pico surface"]]$gg,
-                                       treemap_class[["18S sort nano surface"]]$gg, 
+                                       treemap_class[["18S sort nano surface"]]$gg,
+                                       treemap_class[["fill in"]]$gg,
                                        ncol=1)
 
 treemap_16S_filt <- cowplot::plot_grid(treemap_class[["16S plastid 0.2 um surface"]]$gg,
@@ -497,32 +822,87 @@ treemap_16S_filt <- cowplot::plot_grid(treemap_class[["16S plastid 0.2 um surfac
                                        treemap_class[["16S plastid 20 um surface"]]$gg, 
                                        ncol=1)
 
-fig_2 <- cowplot::plot_grid(bargraph_species[["18S filter"]]$gg, treemap_18S_filt,
-                            bargraph_species[["18S sort"]]$gg, treemap_18S_sort,
-                            bargraph_species[["16S plastid"]]$gg, treemap_16S_filt,
+fig_2 <- cowplot::plot_grid(bargraph_species[["18S filter surface"]]$gg, treemap_18S_filt,
+                            bargraph_species[["18S sort surface"]]$gg, treemap_18S_sort,
+                            bargraph_species[["16S plastid surface"]]$gg, treemap_16S_filt,
                             ncol=2,rel_widths = c(2,1))
 
 fig_2
+```
+
+## Figure Supp - Treemap at genus level
+
+```{r fig.height=15, fig.width=15}
+
+treemap_18S_filt <- cowplot::plot_grid(treemap_genus[["18S filter 0.2 um surface"]]$gg,
+                                       treemap_genus[["18S filter 3 um surface"]]$gg,
+                                       treemap_genus[["18S filter 20 um surface"]]$gg, 
+                                       ncol=1)
+
+treemap_18S_sort <- cowplot::plot_grid(treemap_genus[["18S sort pico surface"]]$gg,
+                                       treemap_genus[["18S sort nano surface"]]$gg,
+                                       treemap_genus[["fill in"]]$gg,
+                                       ncol=1)
+
+treemap_16S_filt <- cowplot::plot_grid(treemap_genus[["16S plastid 0.2 um surface"]]$gg,
+                                       treemap_genus[["16S plastid 3 um surface"]]$gg,
+                                       treemap_genus[["16S plastid 20 um surface"]]$gg, 
+                                       ncol=1)
+
+fig_supp_treemap <- cowplot::plot_grid(treemap_18S_filt,
+                            treemap_18S_sort,
+                            treemap_16S_filt,
+                            ncol=3)
+
+fig_supp_treemap
+```
+
+
+## Figure 3 - NMDS
+
+```{r fig.height=12, fig.width=8}
+
+
+fig_3 <- cowplot::plot_grid(nmds_sample[["18S filter surface"]]$gg_samples,
+                            nmds_sample[["18S filter surface"]]$gg_taxa,
+                            nrow=2,rel_widths = c(1,1))
+
+fig_3
 ```
 
 
 ## Figure 4 - Heatmap
 
 ```{r fig.height=12, fig.width=25}
-fig_3 <- cowplot::plot_grid(heatmap_class_selected[["18S filter 0.2 um surface"]],
+fig_4 <- cowplot::plot_grid(heatmap_class_selected[["18S filter 0.2 um surface"]],
                            heatmap_class_selected[["18S filter 3 um surface"]],
                            heatmap_class_selected[["18S filter 20 um surface"]],
                            heatmap_species_selected[["18S filter 0.2 um surface"]],
                            heatmap_species_selected[["18S filter 3 um surface"]],
                            heatmap_species_selected[["18S filter 20 um surface"]], 
                            nrow=2, ncol=3)
-fig_3
+fig_4
+```
+
+## Figure 6 - Vertical Profile
+
+```{r fig.height=12, fig.width=6}
+
+legend <- cowplot::get_legend( bargraph_sample[["18S filter 0.2 um profile"]] + 
+                      # create some space to the left of the legend    
+                      theme(legend.box.margin = margin(0, 0, 0, 20))
+                    )
+fig_6 <- cowplot::plot_grid(bargraph_sample[["18S filter 0.2 um profile"]]+ theme(legend.position="none"),legend,
+                            bargraph_sample[["18S filter 3 um profile"]] + theme(legend.position="none"),NULL,
+                            bargraph_sample[["18S filter 20 um profile"]]+ theme(legend.position="none"),NULL,
+                            nrow=3, ncol=2, rel_widths = c(3, 1.7))
+fig_6
 ```
 
 
 # CARBOM code
 
-```{r}
+```{r, eval = FALSE, echo=FALSE}
 # === 
 # Convert from phyloseq to vegan
 # ===

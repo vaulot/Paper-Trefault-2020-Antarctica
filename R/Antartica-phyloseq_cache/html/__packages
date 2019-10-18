@@ -8,6 +8,9 @@ tibble
 readr
 maps
 glue
+readxl
+rlang
 phyloseq
 knitr
 rmdformats
+UpSetR
