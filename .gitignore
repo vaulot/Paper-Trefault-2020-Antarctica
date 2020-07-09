@@ -6,3 +6,4 @@ archives
 ~*
 *.xlsx#
 *cache*
+fastq*

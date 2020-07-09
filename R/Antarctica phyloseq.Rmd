@@ -61,6 +61,22 @@ opts_knit$set(width=75)
  
 ```
 
+# Get the list of samples for GenBank
+
+```{r}
+
+genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18), 
+                                   export_phyloseq = FALSE, 
+                                   export_long_xls = FALSE,
+                                   export_wide_xls = FALSE,
+                                   export_fasta = FALSE,
+                                   export_sample_xls = TRUE,
+                                   boot_min = 90, 
+                                   boot_level = supergroup_boot,
+                                   directory = "../genbank/")
+
+```
+
 
 # Get the Antarctica ASVs
 
