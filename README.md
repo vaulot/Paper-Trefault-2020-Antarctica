@@ -7,7 +7,7 @@
 
 * Antarctica_2015_samples.xlsx: List of metabarcoding files with metadata
 * \dada2: output from dad2 analysis
-* \R: R code for data analysis (see [output]())
+* \R: R code for data analysis (see [output](https://vaulot.github.io/Paper-Trefault-2020-Antarctica/Antarctica-phyloseq.html))
 
 ## Data sets
 
