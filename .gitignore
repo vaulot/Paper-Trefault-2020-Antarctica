@@ -7,3 +7,5 @@ archives
 *.xlsx#
 *cache*
 fastq*
+full_data_set
+fig
