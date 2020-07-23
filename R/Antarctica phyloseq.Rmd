@@ -31,6 +31,7 @@ rmarkdown::render('Antarctica phyloseq.Rmd', output_file = '../docs/Antarctica-p
    library(rlang)
    
    library(phyloseq)
+   library(vegan)  
 
    library(knitr)
    library(rmdformats)
@@ -59,23 +60,10 @@ opts_chunk$set(echo=TRUE,
 opts_knit$set(width=75)
 ```
 
-## Read the colors
-
-```{r define_colors}
-
- class_colors <- read_excel("colors.xlsx", sheet = "classes")
-  
- class_colors <-structure(class_colors$color_name,.Names=class_colors$class) 
- 
- genus_colors <- read_excel("colors.xlsx", sheet = "genus")
-  
- genus_colors <-structure(genus_colors$color_name,.Names=genus_colors$genus)  
- 
-```
 
 # Get the list of samples for GenBank submission - 2020-07-09 - DO NOT RUN
 
-```{r eval=FALSE}
+```{r, eval=FALSE}
 
 genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18), 
                                    export_phyloseq = FALSE, 
@@ -109,9 +97,27 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
   # rm(list = ls())
   sample_type <- c("18S filter", "16S plastid", "18S sort")
   taxon_selected <- c("Chlorophyta", "Cryptophyta", "Rhodophyta","Haptophyta", "Ochrophyta")
+  class_excluded <- c("Chrysophyceae", "Bangiophyceae", "Florideophyceae", "Xanthophyceae", "Phaeophyceae")
 
   ps <- list()
   long <- list()
+```
+
+
+## Read the colors
+
+```{r define_colors}
+
+ class_colors <- read_excel("colors.xlsx", sheet = "classes") %>% 
+  filter(!(class %in% class_excluded))
+  
+ class_colors <-structure(class_colors$color_name,.Names=class_colors$class) 
+ 
+ genus_colors <- read_excel("colors.xlsx", sheet = "genus")%>% 
+  filter(!(class %in% class_excluded))
+  
+ genus_colors <-structure(genus_colors$color_name,.Names=genus_colors$genus)  
+ 
 ```
 
 
@@ -119,8 +125,6 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
 
 ```{r, eval=FALSE}
   
-  temp <- list()
-
 # Export as specific data set as a phyloseq file
 
   for (i in 1:3) {
@@ -146,12 +150,36 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
 
 ```
 
+## Read the data from the database (only done once) using the hash value as asv name - DO NOT RUN !
+
+```{r, eval=FALSE}
+  
+# Export as specific data set as a phyloseq file
+
+    temp <- metapr2_export_asv(dataset_id_selected = c(16,18),
+                                                   taxo_level = division,
+                                                   taxo_name = taxon_selected,
+                                                   export_phyloseq = FALSE,
+                                                   export_long_xls = FALSE,
+                                                   export_wide_xls = TRUE,
+                                                   export_fasta = FALSE,
+                                                   export_sample_xls = FALSE,
+                                                   boot_min = 90,
+                                                   boot_level = supergroup_boot,
+                                                   use_hash = TRUE,
+                                                   directory = "../dada2/")
+
+
+
+  rm(temp)
+
+
+```
+
+
 ## Read the Phyloseq files from the disk
 * Only keep station 6
 * Do not consider TFF samples 
-
-
-
 
 ```{r, message=FALSE, eval = TRUE}
 
@@ -170,10 +198,12 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
       
       
        ps[[ sample_type[i] ]] <-  ps[[ sample_type[i] ]] %>% 
+         
   # Filter ASVs that are absent
         filter_taxa(function(x) sum(x) > 0 , TRUE) %>% 
-  # Filter Paraphysomonas
-        subset_taxa(family != "Chrysophyceae_Clade-F") 
+         
+  # Filter Calls to be removed
+        subset_taxa(!(class %in% class_excluded)) 
 
   # Label samples with date 
       sample_data(ps[[ sample_type[i] ]])$sample_label <- as.character(sample_data(ps[[ sample_type[i] ]])$date)
@@ -330,6 +360,7 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
 
 ```{r fig.height=6, fig.width=6}
 
+
   treemap_class <- list()
   treemap_genus <- list()
   
@@ -338,12 +369,14 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
       treemap_class[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]],
                                                                      division, class,
                                                                      str_c(one_sample_type, " - Class" ),
-                                                                     colors = class_colors)
-      treemap_genus[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]], 
-                                                                     class, genus, 
+                                                                     colors = class_colors,
+                                                                     label_group1 = FALSE) 
+
+      treemap_genus[[one_sample_type]] <- phyloseq_long_treemap(long[[one_sample_type]],
+                                                                     class, genus,
                                                                      str_c(one_sample_type, " - Genus" ),
                                                                      colors = genus_colors)
- 
+
   }
 
 ```
@@ -420,7 +453,7 @@ Filter : Dictyo / Chrysophyceae /Pelago /Bacili / Crypto / Pyrami / Mamiello
 #### Selected
 ```{r fig.height=6, fig.width=9}
 
-class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacillariophyta", "Prymnesiophyceae", "Cryptophyceae", "Pyramimonadophyceae", "Mamiellophyceae")
+class_selected <- c("Dictyochophyceae", "Pelagophyceae", "Bacillariophyta", "Prymnesiophyceae", "Cryptophyceae", "Pyramimonadophyceae", "Mamiellophyceae")
 
   heatmap_class_selected <- list()
 
@@ -444,7 +477,7 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
    gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                        taxa.label = "class",  taxa.order="class",
                        sample.label = "sample_label", sample.order="sample_label",
-                       low="beige", high="red", na.value="gray95", trans=NULL, 
+                       low="beige", high="red", na.value="red", trans=NULL, 
                        title=one_sample_type) +
          theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1),
                axis.title.x=element_blank(), 
@@ -454,24 +487,24 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
          scale_fill_gradient(limits= c(0, reads_max), low="beige", high="red", na.value="red") 
     
     if (str_detect(one_sample_type,"18S filter 0.2")) gg <- gg +
-     expand_limits(y= c(0.5,9) )     +
+     expand_limits(y= c(0.5,8) )     +
      geom_vline(xintercept = c(3.5, 9.5, 12.5)) + 
-     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2, 6.5, 11, 15), y = 8.65, 
+     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2, 6.5, 11, 15), y = 7.65, 
               color = "white", fill= "grey50", 
               hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))  
      
 
     if (one_sample_type == "18S filter 3 um surface") gg <- gg +
-     expand_limits(y= c(0.5,9) )    +  
+     expand_limits(y= c(0.5,8) )    +  
      geom_vline(xintercept = c(4.5, 10.5, 13.5))  +
-     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2.5, 7.5, 12, 16), y = 8.65, 
+     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2.5, 7.5, 12, 16), y = 7.65, 
               color = "white", fill= "grey50", 
               hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))
 
     if (one_sample_type == "18S filter 20 um surface") gg <- gg +
-     expand_limits(y= c(0.5,9) )    +  
+     expand_limits(y= c(0.5,8) )    +  
      geom_vline(xintercept = c(4.5, 9.5)) +
-     annotate(geom = "text", label = c("summer", "fall", "summer"), x= c(2.5, 7, 12.5), y = 8.65, 
+     annotate(geom = "text", label = c("summer", "fall", "summer"), x= c(2.5, 7, 12.5), y = 7.65, 
               color = "white", fill= "grey50", 
               hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))
 
@@ -498,12 +531,18 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
     
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "species") %>% 
       phyloseq_filter_abundant_taxa(fraction_min=0.1)
+    
+    reads_max <- case_when(str_detect(one_sample_type, "18S filter") ~ 10000,
+                           str_detect(one_sample_type, "16S plastid") ~ 5000,
+                           str_detect(one_sample_type, "18S sort") ~ 10000)    
+
       
     heatmap_genus_abundant[[one_sample_type]]  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                  taxa.label = "species",  taxa.order="division",
                  sample.label = "sample_label", sample.order="sample_label",
-                 low="beige", high="red", na.value="beige", 
-                 title=one_sample_type)
+                 low="beige", high="red", na.value="red", 
+                 title=one_sample_type)  +
+                 scale_fill_gradient(limits= c(0,reads_max), low="beige", high="red", na.value="red")
     
     print(heatmap_genus_abundant[[one_sample_type]] )
   
@@ -514,7 +553,7 @@ class_selected <- c("Dictyochophyceae", "Chrysophyceae", "Pelagophyceae", "Bacil
 
 ```{r fig.height=6, fig.width=9}
 
-species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Minidiscus_sp.", "Chaetoceros_neogracilis",
+species_selected <- c("Thalassiosira_minima","Thalassiosira_antarctica", "Fragilariopsis_cylindrus",  "Minidiscus_sp.", "Chaetoceros_neogracilis",
                       "Porosira_glacialis", "Coretrhon_inerme", "Palmaria_palmata", "Pseudo-nitzchia_seriata",
                       "Micromonas_polaris",  "Micromonas_clade_B3","Bathycoccus_prasinos", "Pyramimonas_gelidicola", 
                       "Geminigera_cryophila", "Pelagophyceae_XXX_sp." ,
@@ -548,12 +587,12 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
     gg  <- plot_heatmap(ps_heat, method = "NMDS", distance = "bray", 
                        taxa.label = "species",  taxa.order="class",
                        sample.label = "sample_label", sample.order="sample_label",
-                       low="beige", high="red", na.value="gray95", trans = NULL,
+                       low="beige", high="red", na.value="red", trans = scales::log10_trans(),
                        title=one_sample_type) +
                        theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust=1),
                              axis.title.x=element_blank(), axis.title.y=element_blank(),
                              panel.background = element_rect(fill = "grey50"),
-                             panel.grid.major = element_blank()) +
+                             panel.grid.major = element_blank())  +
                        scale_fill_gradient(limits= c(0,reads_max), low="beige", high="red", na.value="red")
       
     if (str_detect(one_sample_type, "18S filter 0.2")) gg <- gg + geom_vline(xintercept = c(3.5, 9.5, 12.5))
@@ -598,6 +637,56 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
 
 
 ```
+
+# ANOSIM and PERMANOVA
+
+https://joey711.github.io/phyloseq-demo/Restroom-Biogeography.html
+
+## Apply to all samples
+
+```{r}
+
+  for (one_sample_type in sample_type_surface[c(1,2)]) { 
+    
+   cat( "\n", "===========================", "\n")
+   cat (glue::glue("Data set: {one_sample_type}"), "\n")
+   cat("===========================", "\n")
+    
+    one_ps <- ps[[one_sample_type]] %>% 
+      tax_glom(taxrank = "species") 
+    
+# ANOSIM
+    for (one_factor in c("season", "fraction_name_original")) {
+    
+    group = phyloseq::get_variable(one_ps, one_factor)
+    
+    anosim = vegan::anosim(distance(one_ps, "bray"), group)
+    
+    cat (glue::glue("ANOSIM - Variable: {one_factor}"), "\n")
+    cat (glue::glue("{unique(group)} "), "\n")
+    
+
+    print(anosim)
+    }
+    
+# Permanova
+    
+  bray.dist <- phyloseq::distance(one_ps, method = "bray")
+
+  # making a data frame from the sample_data
+
+  sample.df <- data.frame(sample_data(one_ps))  
+  
+  cat (glue::glue("PERMANOVA"), "\n")
+    
+  print(vegan::adonis(bray.dist ~ season + fraction_name_original, data = sample.df))
+
+  }
+
+
+
+```
+
 
 
 # Vertical profile 
@@ -662,7 +751,7 @@ species_selected <- c("Thalassiosira_minima", "Fragilariopsis_cylindrus",  "Mini
 }
 ```
 
-# Compare the contributions of CLASS and SPECIES using the different methods
+# Compare the contributions of CLASS, GENUS and SPECIES using the different methods
 
 ## Sample by sample comparison
 
@@ -757,34 +846,40 @@ long_class   <- list()
 fig_upset_list <- list()
 
   for (one_sample_type in sample_type) {
-      long_one <- long_species_sample[[one_sample_type]] %>%
+    
+      long_species_sample_filtered <- long_species_sample[[one_sample_type]] %>%
         filter(date >= as.Date("2015-01-01")) %>% 
-        filter(!str_detect(species, "_X")) %>% 
-        filter(fraction_name_original != "> 20 um") %>% 
+        filter(fraction_name_original != "> 20 um")
+    
+      long_one <- long_species_sample_filtered %>% 
         group_by(division, class, order, family, genus, species) %>%
-        summarize(n_reads = sum(n_reads), n_samples = n()) %>% 
-        rename_at(vars(contains("n_")), funs(str_c( .,str_replace_all(one_sample_type, " ", "_"), sep="_"))) %>% 
+        summarize(min_pct_reads = min(n_reads, na.rm = TRUE)*100, 
+                  mean_pct_reads = mean(n_reads, na.rm = TRUE)*100, 
+                  max_pct_reads = max(n_reads, na.rm = TRUE)*100, 
+                  n_samples = n()) %>% 
+        rename_at(vars(matches("n_|pct_")), funs(str_c( .,str_replace_all(one_sample_type, " ", "_"), sep="_"))) %>% 
         ungroup()
       
       long_species[[one_sample_type]] <- long_one 
       
-      long_one <- long_species_sample[[one_sample_type]] %>%
-        filter(date >= as.Date("2015-01-01")) %>% 
-        filter(!str_detect(species, "_X")) %>% 
-        filter(fraction_name_original != "> 20 um") %>% 
+      long_one <- long_species_sample_filtered %>% 
         group_by(division, class, order, family, genus) %>%
-        summarize(n_reads = sum(n_reads), n_samples = n()) %>% 
-        rename_at(vars(contains("n_")), funs(str_c( .,str_replace_all(one_sample_type, " ", "_"), sep="_"))) %>% 
+        summarize(min_pct_reads = min(n_reads, na.rm = TRUE)*100, 
+                  mean_pct_reads = mean(n_reads, na.rm = TRUE)*100, 
+                  max_pct_reads = max(n_reads, na.rm = TRUE)*100, 
+                  n_samples = n()) %>% 
+        rename_at(vars(matches("n_|pct_")), funs(str_c( .,str_replace_all(one_sample_type, " ", "_"), sep="_"))) %>% 
         ungroup()
       
       long_genus[[one_sample_type]] <- long_one 
 
-      long_one <- long_class_sample[[one_sample_type]] %>%
-        filter(date >= as.Date("2015-01-01"))%>% 
-        filter(fraction_name_original != "> 20 um") %>%
+      long_one <- long_species_sample_filtered %>%
         group_by(division, class) %>%
-        summarize(n_reads = sum(n_reads), n_samples = n())%>% 
-        rename_at(vars(contains ("n_")), funs( str_c(., str_replace_all(one_sample_type, " ", "_"), sep="_")))  %>% 
+        summarize(min_pct_reads = min(n_reads, na.rm = TRUE)*100, 
+                  mean_pct_reads = mean(n_reads, na.rm = TRUE)*100, 
+                  max_pct_reads = max(n_reads, na.rm = TRUE)*100, 
+                  n_samples = n())%>% 
+        rename_at(vars(matches("n_|pct_")), funs( str_c(., str_replace_all(one_sample_type, " ", "_"), sep="_")))  %>% 
         ungroup()    
       
       long_class[[one_sample_type]] <- long_one 
@@ -837,12 +932,31 @@ fig_upset_list <- list()
                                         !is.na(n_samples_16S_plastid) )))
    
   long_genus_comparison_upset <- long_genus_comparison %>% 
-  select(genus, contains("samples")) %>%
-  rename_at(vars(contains("n_")), funs(str_replace_all(.,c("n_samples_" = "", "_" = " ", "plastid" = "filter")))) 
+    filter(!str_detect(genus, "_"))  %>% 
+    select(genus, contains("samples")) %>%
+    rename_at(vars(contains("n_")), funs(str_replace_all(.,c("n_samples_" = "", "_" = " ", "plastid" = "filter")))) 
    
   fig_upset_list[["method genus"]] <- plot_upset_long(long_genus_comparison_upset, "../fig/upset_method_genus.png")
 
   # Species ----------
+  
+   ggplot( long_species_comparison, aes(x=mean_pct_reads_18S_filter, y=mean_pct_reads_18S_sort, label=species, fill=class)) +
+    geom_label(alpha= 0.5) +
+    scale_x_log10() +
+    scale_y_log10() +
+    theme_bw() +
+    labs(x = "18S sort", y="18S sort")  +
+    scale_fill_manual(values = class_colors) +
+    geom_abline(slope=1)
+  
+   ggplot( long_species_comparison, aes(x=mean_pct_reads_18S_filter, y=mean_pct_reads_16S_plastid, label=species, fill=class)) +
+    geom_label(alpha= 0.5) +
+    scale_x_log10() +
+    scale_y_log10() +
+    theme_bw() +
+    labs(x = "18S sort", y="16S filter")  +
+    scale_fill_manual(values = class_colors) +
+    geom_abline(slope=1)
    
 
   cat("Species only found in one type of sample\n")
@@ -857,8 +971,12 @@ fig_upset_list <- list()
                                         is.na(n_samples_18S_sort)  )))
    
   long_species_comparison_upset <- long_species_comparison %>% 
-  select(species, contains("samples")) %>%
+    filter(!str_detect(genus, "_"))  %>% 
+    select(species, contains("samples")) %>%
   rename_at(vars(contains("n_")), funs(str_replace(.,"n_samples_", ""))) 
+  
+
+  
    
   fig_upset_list[["method species"]] <- plot_upset_long(long_species_comparison_upset, "../fig/upset_method_species.png")
 
@@ -866,13 +984,14 @@ fig_upset_list <- list()
 
 ```
 
-## Write to Excel file
+## Write comparison to Excel file
 
 ```{r, eval = FALSE}
 
    openxlsx::write.xlsx(list(long_class_comparison,long_genus_comparison,long_species_comparison ), 
                         file="../dada2/method_comparison.xlsx",
-                        sheetName=c("Class","Genus", "Species"))
+                        sheetName=c("Class","Genus", "Species"),
+                        firstActiveRow = 2, colWidths ="auto", numFmt="0.00", zoom=75)
 
 ```
 
@@ -894,7 +1013,7 @@ long_class_fraction <- list()
   for (one_sample_type in sample_type[c(1,3)]) {
       long_one <- long_species_sample[[one_sample_type]] %>%
         filter(date >= as.Date("2015-01-01")) %>% 
-        filter(!str_detect(species, "_X")) %>%  
+        filter(!str_detect(genus, "_")) %>%  
         group_by(fraction_name_original, division, class, order, family, genus, species) %>%
         summarize(n_samples = n()) %>% 
         pivot_wider(names_from = fraction_name_original, values_from = n_samples) %>% 
@@ -941,7 +1060,7 @@ long_class_fraction <- list()
 
   for (one_sample_type in sample_type[c(1)]) {
       long_one <- long_species_sample[[one_sample_type]] %>%
-        filter(!str_detect(species, "_X")) %>%  
+        filter(!str_detect(genus, "_")) %>%  
         group_by(fraction_name_original, division, class, order, family, genus, species) %>%
         summarize(n_samples = n()) %>% 
         pivot_wider(names_from = fraction_name_original, values_from = n_samples) %>% 
@@ -950,7 +1069,7 @@ long_class_fraction <- list()
       long_species_fraction[[one_sample_type]] <- long_one 
       
       long_one <- long_species_sample[[one_sample_type]] %>%
-        filter(!str_detect(species, "_X")) %>%  
+        filter(!str_detect(genus, "_")) %>%  
         group_by(fraction_name_original, division, class, order, family, genus) %>%
         summarize(n_samples = n()) %>% 
         pivot_wider(names_from = fraction_name_original, values_from = n_samples) %>% 
@@ -998,7 +1117,7 @@ long_class_fraction <- list()
 
   for (one_sample_type in sample_type[c(3)]) {
       long_one <- long_species_sample[[one_sample_type]] %>%
-        filter(!str_detect(species, "_X")) %>%  
+        filter(!str_detect(genus, "_")) %>%  
         group_by(fraction_name_original, division, class, order, family, genus, species) %>%
         summarize(n_samples = n()) %>% 
         pivot_wider(names_from = fraction_name_original, values_from = n_samples) %>% 
@@ -1007,7 +1126,7 @@ long_class_fraction <- list()
       long_species_fraction[[one_sample_type]] <- long_one 
 
   long_one <- long_species_sample[[one_sample_type]] %>%
-        filter(!str_detect(species, "_X")) %>%  
+        filter(!str_detect(genus, "_")) %>%  
         group_by(fraction_name_original, division, class, order, family, genus) %>%
         summarize(n_samples = n()) %>% 
         pivot_wider(names_from = fraction_name_original, values_from = n_samples) %>% 
@@ -1067,7 +1186,7 @@ long_class_fraction <- list()
 
 ## List of genera
 
-```{r}
+```{r, eval = FALSE}
   dummy <- long[["18S filter surface"]] %>%
    bind_rows(long[["18S sort surface"]]) %>% 
    bind_rows(long[["16S plastid surface"]]) %>% 
@@ -1119,8 +1238,8 @@ treemap_18S_filt <- (treemap_class[["18S filter 0.2 um surface"]]$gg + ggtitle("
                     (treemap_class[["18S filter 3 um surface"]]$gg + ggtitle("3 µm")) /
                     (treemap_class[["18S filter 20 um surface"]]$gg + ggtitle("20 µm"))
 
-treemap_18S_sort <- (treemap_class[["18S sort pico surface"]]$gg + ggtitle("0.2 µm")) /
-                    (treemap_class[["18S sort nano surface"]]$gg + ggtitle("3 µm")) /
+treemap_18S_sort <- (treemap_class[["18S sort pico surface"]]$gg + ggtitle("pico")) /
+                    (treemap_class[["18S sort nano surface"]]$gg + ggtitle("nano")) /
                     plot_spacer()
 
 treemap_16S_filt <- (treemap_class[["16S plastid 0.2 um surface"]]$gg + ggtitle("0.2 µm"))/
@@ -1130,11 +1249,11 @@ treemap_16S_filt <- (treemap_class[["16S plastid 0.2 um surface"]]$gg + ggtitle(
 fig_2 <- ggpubr::as_ggplot(legend_class) /
   
                             ( bargraph_species[["18S filter surface"]]$gg + theme(legend.position="none") + 
-                            treemap_18S_filt + plot_layout(widths = c(3,1))) / 
+                            treemap_18S_filt + plot_layout(widths = c(1,1))) / 
                             (bargraph_species[["18S sort surface"]]$gg  + theme(legend.position="none") + 
-                            treemap_18S_sort+ plot_layout(widths = c(3,1))) /
+                            treemap_18S_sort+ plot_layout(widths = c(1,1))) /
                             (bargraph_species[["16S plastid surface"]]$gg + theme(legend.position="none") + ggtitle("16S filter surface") + 
-                            treemap_16S_filt+ plot_layout(widths = c(3,1))) +
+                            treemap_16S_filt+ plot_layout(widths = c(1,1))) +
                             plot_layout(heights = c(1,3,3,3))
 
 fig_2
@@ -1194,7 +1313,7 @@ fig_3
 
 
 fig_3 <- (nmds_sample[["18S filter surface"]]$gg_samples  + labs(title = "18S filter", shape="fraction" )) /
-                            nmds_sample[["18S filter surface"]]$gg_taxa + ggtitle("")
+                            (nmds_sample[["18S filter surface"]]$gg_taxa + ggtitle(""))
 
 fig_3
 ```
@@ -1227,7 +1346,7 @@ fig_NMDS_plastid
 ## Figure 4 - Heatmap 18S filter
 
 ### Cowplot
-```{r fig.height=12, fig.width=25}
+```{r fig.height=12, fig.width=25, eval = FALSE}
 fig_4 <- cowplot::plot_grid(heatmap_class_selected[["18S filter 0.2 um surface"]],
                            heatmap_class_selected[["18S filter 3 um surface"]],
                            heatmap_class_selected[["18S filter 20 um surface"]],
@@ -1371,7 +1490,7 @@ fig_path <- function (file) str_c("C:/daniel.vaulot@gmail.com/Papers/2020 Trefau
 
 
 ggsave(plot= fig_2 , filename=fig_path("Figure_treeplot.pdf"), 
-       width = 12 , height = 25, scale=2.5, units="cm", useDingbats=FALSE) 
+       width = 16 , height = 25, scale=1.8, units="cm", useDingbats=FALSE) 
 ggsave(plot= fig_3 , filename=fig_path("Figure_NMDS.pdf"), 
        width = 12 , height = 18, scale=1.75, units="cm", useDingbats=FALSE) 
 ggsave(plot= fig_4 , filename=fig_path("Figure_heatmap.pdf"), 
@@ -1389,13 +1508,6 @@ ggsave(plot= fig_supp_treemap , filename=fig_path("Figure-sup_treemap_genus.pdf"
        width = 12 , height = 12, scale=2, units="cm", useDingbats=FALSE)
 
 
-Figure-sup_NMDS_16S_plastid.pdf
-Figure-sup_treemap_genus.pdf
-
-Figure_upset.pdf
-Figure_vertical_profile.pdf
-Figure_vertical_profile_side.pdf
-Figure-sup_heatmap_18S_sort.pdf
 
 ```
 
@@ -1494,6 +1606,26 @@ table <- xtable::xtable(table, label=one_label,
                         caption=one_caption, 
                         align = c("l","c","c", "c","c","c", "c", "c", "c","c","c", "c"),
                         digits=c(0,0,2,1,2,1,2,2,1,0,0,0))
+print(table,  scalebox = 1, 
+      caption.placement = "top",
+      include.rownames = FALSE, 
+      file=path_table(one_file),
+      sanitize.text.function = sanitize.italics)
+```
+
+## Table - ANOSIM
+```{r, eval=FALSE}
+one_sheet <- "Table ANOSIM"
+one_legend <- filter(legends, table == one_sheet)
+one_caption <- one_legend$legend[1]
+one_label <- one_legend$label[1]
+one_file <- one_legend$file_name[1]
+
+table <- readxl::read_excel(path=file_main, sheet=one_sheet, range= "A1:D5")
+table <- xtable::xtable(table, label=one_label, 
+                        caption=one_caption, 
+                        align = c("l","c","c", "c","c"),
+                        digits=3)
 print(table,  scalebox = 1, 
       caption.placement = "top",
       include.rownames = FALSE, 
