@@ -1,7 +1,7 @@
-# Data for metabarcoding of Antarctic phytoplankton
-## Fieldes Bay - 2014-2015
+# Metabarcoding analysis of Antarctic phytoplankton : Fieldes Bay - 2014-2015
 
-* Trefault N., de la Iglesia R., Moreno-Pino M., Lopes dos Santos A., Gérikas Ribero C., Cristi A., Vaulot D. submitted. Year round phytoplankton dynamic in Antarctic coastal waters through 18S rRNA and plastidial 16S rRNA genes. Scientific Reports.
+Data associated to the following paper
+* Trefault N., de la Iglesia R., Moreno-Pino M., Lopes dos Santos A., Gérikas Ribero C., Cristi A., Vaulot D. submitted. Annual phytoplankton dynamics in coastal waters from Fildes Bay, Western Antarctic Peninsula. submitted to Scientific Reports - 2020.
 
 ## Files and directories
 
@@ -10,7 +10,6 @@
 * \R: R code for data analysis (see [output](https://vaulot.github.io/Paper-Trefault-2020-Antarctica/Antarctica-phyloseq.html))
 
 ## Data sets
-
 |set id |  description |
 |---|---|
 | 16 | Antar_2015_18S_V4 |

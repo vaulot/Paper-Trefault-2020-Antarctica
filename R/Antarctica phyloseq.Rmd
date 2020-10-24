@@ -35,6 +35,7 @@ rmarkdown::render('Antarctica phyloseq.Rmd', output_file = '../docs/Antarctica-p
 
    library(knitr)
    library(rmdformats)
+   library(kableExtra)
 
    library(patchwork)
 
@@ -123,6 +124,8 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
 
 ## Read the data from the database (only done once) - DO NOT RUN !
 
+* After running rename "_Chlor_Crypt_Rhodo_Hapto_Ochro" to "_photo"
+
 ```{r, eval=FALSE}
   
 # Export as specific data set as a phyloseq file
@@ -167,7 +170,7 @@ genbank <-      metapr2_export_asv(dataset_id_selected = c(16, 17, 18),
                                                    boot_min = 90,
                                                    boot_level = supergroup_boot,
                                                    use_hash = TRUE,
-                                                   directory = "../dada2/")
+                                                   directory = "../dada2/hash/")
 
 
 
@@ -507,6 +510,28 @@ class_selected <- c("Dictyochophyceae", "Pelagophyceae", "Bacillariophyta", "Pry
      annotate(geom = "text", label = c("summer", "fall", "summer"), x= c(2.5, 7, 12.5), y = 7.65, 
               color = "white", fill= "grey50", 
               hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))
+   
+    if (str_detect(one_sample_type,"16S plastid 0.2")) gg <- gg +
+     expand_limits(y= c(0.5,8) )     +
+     geom_vline(xintercept = c(4.5, 5.5, 7.5)) + 
+     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2.5, 5, 6.5, 10), y = 7.65, 
+              color = "white", fill= "grey50", 
+              hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))  
+     
+
+    if (one_sample_type == "16S plastid 3 um surface") gg <- gg +
+     expand_limits(y= c(0.5,8) )    +  
+     geom_vline(xintercept = c(3.5, 8.5, 11.5))  +
+     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2, 6, 10, 14), y = 7.65, 
+              color = "white", fill= "grey50", 
+              hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))
+
+    if (one_sample_type == "16S plastid 20 um surface") gg <- gg +
+     expand_limits(y= c(0.5,8) )    +  
+     geom_vline(xintercept = c(4.5, 8.5, 9.5))  +
+     annotate(geom = "text", label = c("summer", "fall", "spring", "summer"), x= c(2.5, 6, 9, 11.5), y = 7.65, 
+              color = "white", fill= "grey50", 
+              hjust = 0.5, vjust = 0, size = 4.5, label.r = unit(0.20, "lines"))
 
     
     # plot(heatmap(otu_table(ps_heat)))
@@ -575,7 +600,12 @@ species_selected <- c("Thalassiosira_minima","Thalassiosira_antarctica", "Fragil
                       "Phaeocystis_antarctica") 
         }
 
-
+    if (str_detect(one_sample_type, "16S plastid")) {
+        species_selected <- c("Minidiscus_sp.", "Porosira_glacialis", "Pseudo-nitzchia_sp.", "Thalassiosira_sp.",
+                              "Phaeocystis_sp.", "Chrysochromulina_sp.",
+                              "Pelagomonadaceae_X_sp.", "Cryptomonadales_XX_sp.",
+                              "Pyramimonas_sp.") 
+        }
 
     ps_heat <- tax_glom(ps[[one_sample_type]],taxrank = "species") %>% 
       subset_taxa(species %in% species_selected )
@@ -601,6 +631,12 @@ species_selected <- c("Thalassiosira_minima","Thalassiosira_antarctica", "Fragil
 
     if (one_sample_type == "18S filter 20 um surface") gg <- gg +  geom_vline(xintercept = c(4.5, 9.5))
     
+    if (str_detect(one_sample_type,"16S plastid 0.2")) gg <- gg +  geom_vline(xintercept = c(4.5, 5.5, 7.5))
+     
+
+    if (one_sample_type == "16S plastid 3 um surface") gg <- gg + geom_vline(xintercept = c(3.5, 8.5, 11.5)) 
+    
+    if (one_sample_type == "16S plastid 20 um surface") gg <- gg + geom_vline(xintercept = c(4.5, 8.5, 9.5))
                 
     
     # plot(heatmap(otu_table(ps_heat)))
@@ -799,6 +835,72 @@ long_class_sample <- list()
    ggtitle("Classes")
    
 ```
+## Build the species table including all samples
+
+```{r}
+unfill <- function(x) {
+  same <- x == dplyr::lag(x)
+  ifelse(!is.na(same) & same, NA, x)
+}
+```
+
+
+```{r}
+  table_species <- list()
+
+  for (one_sample_type in sample_type) {
+    
+      table_species [[one_sample_type]] <- long_species_sample[[one_sample_type]] %>% 
+        mutate(level= ifelse(depth == 5, "surface", "euphotic")) %>% 
+        group_by(division, class, order, family, genus, species, level) %>%
+        summarize(min_pct_reads = min(n_reads, na.rm = TRUE)*100, 
+                  mean_pct_reads = mean(n_reads, na.rm = TRUE)*100, 
+                  max_pct_reads = max(n_reads, na.rm = TRUE)*100, 
+                  n_samples = n()) %>% 
+        rename_at(vars(matches("n_|pct_")), funs(str_c( .,str_replace_all(one_sample_type, " ", "_"), sep="_"))) %>% 
+        ungroup() 
+      
+  }
+
+  table_species <- table_species %>% 
+    purrr::reduce(full_join) %>% 
+    select(-order, -family, -genus) %>% 
+    mutate(species = str_replace(species, "_X+", "")) %>% 
+    arrange(division, class, species) %>% 
+    filter(!str_detect(species, "ales|phyceae|phyta|aceae|Raphid-|MOCH|Luka"))
+  
+  table_species_surface <- table_species %>% 
+    filter (level == "surface") %>%
+    select(-level) %>% 
+    mutate(across(c("division", "class"), ~ unfill(.x))) %>% 
+    mutate(across(c("division", "class", "species"), ~ str_replace_all(.x, "_", " ")))
+
+  table_species_euphotic_only <- table_species %>% 
+    select(division, class, species, level) %>% 
+    mutate(rn = row_number()) %>% 
+    pivot_wider(names_from = level, values_from = rn ) %>% 
+    filter(is.na(surface)) %>% 
+    select(-surface, -euphotic) %>% 
+    mutate(across(c("division", "class"), ~ unfill(.x))) %>% 
+    mutate(across(c("division", "class", "species"), ~ str_replace_all(.x, "_", " ")))
+    
+  
+  
+  openxlsx::write.xlsx(table_species_surface, 
+                        file="../dada2/species_table_surface.xlsx",
+                        sheetName=c("Species"),
+                        firstActiveRow = 2, colWidths ="auto", numFmt="0.00", zoom=75)
+  
+  openxlsx::write.xlsx(table_species_euphotic_only, 
+                        file="../dada2/species_table_euphotic.xlsx",
+                        sheetName=c("Species"),
+                        firstActiveRow = 2, colWidths ="auto", numFmt="0.00", zoom=75)  
+  
+  
+
+```
+
+
 
 ## Define upset function
 * Needs only to have 0 and 1 in the matrix
@@ -1193,7 +1295,7 @@ long_class_fraction <- list()
    count(class, genus, wt= n_reads) %>% 
    select(-n)
 
-  openxlsx::write.xlsx(dummy, "genus_colors.xlsx")
+  # openxlsx::write.xlsx(dummy, "genus_colors.xlsx")
 ```
 
 
@@ -1388,6 +1490,27 @@ fig_4 <- heatmap_class_selected[["18S filter 0.2 um surface"]]+
 
 fig_4
 ```
+## Figure sup - Heatmap 16S filter
+
+
+### Patchwork
+```{r fig.height=12, fig.width=25}
+fig_heatmap_16S <- heatmap_class_selected[["16S plastid 0.2 um surface"]]+ 
+  labs(title ="0.2 µm") + 
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank())  +
+  
+  heatmap_class_selected[["16S plastid 3 um surface"]]+ 
+  labs(title ="3 µm") + 
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank(), axis.text.y=element_blank())  +
+  
+  heatmap_class_selected[["16S plastid 20 um surface"]]+ 
+  labs(title ="20 µm")+ 
+  theme(axis.title.x=element_blank(), axis.title.y=element_blank(), axis.text.y=element_blank()) +
+  
+  plot_layout(nrow = 1, byrow = TRUE, guides = "collect") 
+
+fig_heatmap_16S
+```
 
 ## Figure sup - Heatmap 18S sort
 ### Cowplot - DO NOT USE
@@ -1486,7 +1609,7 @@ fig_X_upset
 ## Save figures
 ```{r, eval = FALSE}
 
-fig_path <- function (file) str_c("C:/daniel.vaulot@gmail.com/Papers/2020 Trefault Antarctic/Antarctic_overleaf_version_3.0/fig/", file)
+fig_path <- function (file) str_c("C:/daniel.vaulot@gmail.com/Papers/2020 Trefault Antarctic/paper_antarctic_overleaf/fig/", file)
 
 
 ggsave(plot= fig_2 , filename=fig_path("Figure_treeplot.pdf"), 
@@ -1504,6 +1627,8 @@ ggsave(plot= fig_NMDS_plastid , filename=fig_path("Figure-sup_NMDS_16S_plastid.p
        width = 12 , height = 18, scale=1.75, units="cm", useDingbats=FALSE) 
 ggsave(plot= fig_heatmap_sort , filename=fig_path("Figure-sup_heatmap_18S_sort.pdf"), 
        width = 12 , height = 10, scale=2, units="cm", useDingbats=FALSE) 
+ggsave(plot= fig_heatmap_16S , filename=fig_path("Figure-sup_heatmap_16S.pdf"), 
+       width = 12 , height = 5, scale=3, units="cm", useDingbats=FALSE)
 ggsave(plot= fig_supp_treemap , filename=fig_path("Figure-sup_treemap_genus.pdf"), 
        width = 12 , height = 12, scale=2, units="cm", useDingbats=FALSE)
 
@@ -1523,7 +1648,7 @@ library(xtable)
     * "X" = "\\\\cellcolor{gray}"
 ```{r, eval=FALSE}
 sanitize.italics <- function(str) {
-  str_replace_all(str, c(#"_" = "\\\\_", 
+  str_replace_all(str, c("_" = " ", 
                          # "ital\\{" = "\\\\textit{", 
                          "Â°" = "\\\\degree",
                          "±"="$\\pm$"))
@@ -1533,7 +1658,7 @@ sanitize.italics <- function(str) {
 ## File path
 
 ```{r, eval=FALSE}
-path_table <- function(file_table) {str_c("C:/daniel.vaulot@gmail.com/Papers/2020 Trefault Antarctic/Antarctic_overleaf_version_3.0/tables/", file_table)}
+path_table <- function(file_table) {str_c("C:/daniel.vaulot@gmail.com/Papers/2020 Trefault Antarctic/paper_antarctic_overleaf/tables/", file_table)}
 
 file_main <- path_table("Tables.xlsx")
 ```
@@ -1546,6 +1671,8 @@ legends <- readxl::read_excel(path=file_main, sheet="Table legends")
 
 
 ## Table - Data sets
+
+### Using Xtable
 ```{r, eval=FALSE}
 one_sheet <- "Table data sets"
 one_legend <- filter(legends, table == one_sheet)
@@ -1565,7 +1692,32 @@ print(table,  scalebox = 0.85,
       sanitize.text.function = sanitize.italics)
 ```
 
+### Using KableXtra
+```{r}
+one_sheet <- "Table data sets"
+one_legend <- filter(legends, table == one_sheet)
+one_caption <- one_legend$legend[1]
+one_label <- one_legend$label[1]
+one_file <- one_legend$file_name[1]
+
+table <- readxl::read_excel(path=file_main, sheet=one_sheet, range= "A1:G4")
+
+table_latex <- kbl(table, 
+                   caption = one_caption, 
+                   label=str_remove(one_label,"tab:"), 
+                   booktabs = T, 
+                   format = "latex", 
+                   escape = F) %>% 
+  kable_styling(latex_options = c("scale_down"),
+                position="center")
+
+cat(table_latex, file = path_table(one_file))
+```
+
+
 ## Table - Samples
+
+### Using Xtable
 ```{r, eval=FALSE}
 one_sheet <- "Table samples"
 one_legend <- filter(legends, table == one_sheet)
@@ -1575,7 +1727,7 @@ one_file <- one_legend$file_name[1]
 
 addtorow <- list()
 addtorow$pos <- list(0, 0)
-addtorow$command <- c( "Date & Season & CTD & Chl & FCM & Nutrients & Profile & \\multicolumn{3}{c}{18S rRNA filter} & \\multicolumn{3}{c}{16S rRNA plastid filter}  & \\multicolumn{2}{c}{18S rRNA sort} \\\\\n", 
+addtorow$command <- c( "Date & Season & CTD & Chl & FCM & Nutrients & Profile & \\multicolumn{3}{c}{18S rRNA filter} & \\multicolumn{3}{c}{16S rRNA filter}  & \\multicolumn{2}{c}{18S rRNA sort} \\\\\n", 
 "& & & & & & & 0.2 $\\mu$m  & 3 $\\mu$m  & 20 $\\mu$m  & 0.2 $\\mu$m  & 3 $\\mu$m  & 20 $\\mu$m  & Pico  & Nano \\\\\n")
 
 
@@ -1592,6 +1744,39 @@ print(table,  scalebox = 0.75,
       file=path_table(one_file),
       sanitize.text.function = sanitize.italics)
 ```
+
+### Using KableXtra
+```{r}
+one_sheet <- "Table samples"
+one_legend <- filter(legends, table == one_sheet)
+one_caption <- one_legend$legend[1]
+one_label <- one_legend$label[1]
+one_file <- one_legend$file_name[1]
+one_colname <- c("Date", "Season", "CTD", "Chl", "FCM", "Nutrients", "Profile", 
+                 "0.2 $\\mu$m", "3 $\\mu$m", "20 $\\mu$m", 
+                 "0.2 $\\mu$m", "3 $\\mu$m", "20 $\\mu$m", 
+                 "Pico ", "Nano")
+
+table <- readxl::read_excel(path=file_main, sheet=one_sheet, range= "A3:O22", col_names = FALSE)
+
+table_latex <- kbl(table, 
+                   caption = one_caption, 
+                   label=str_remove(one_label,"tab:"), 
+                   col.names = one_colname,
+                   align = c("l", rep('c',times=14)),
+                   booktabs = T, 
+                   format = "latex", 
+                   escape = F) %>% 
+  kable_styling(latex_options = c("scale_down"),
+                position="center") %>% 
+  add_header_above(c(" "= 7 , 
+                     "18S rRNA filter" = 3, 
+                     "16S rRNA filter" = 3,
+                     "18S rRNA sort" = 2)) 
+
+cat(table_latex, file = path_table(one_file))
+```
+
 
 ## Table - Vertical Profile
 ```{r, eval=FALSE}
@@ -1632,3 +1817,94 @@ print(table,  scalebox = 1,
       file=path_table(one_file),
       sanitize.text.function = sanitize.italics)
 ```
+
+## Table - Species surface
+```{r, eval=FALSE}
+one_sheet <- "Table species surface"
+one_legend <- filter(legends, table == one_sheet)
+one_caption <- one_legend$legend[1]
+one_label <- one_legend$label[1]
+one_file <- one_legend$file_name[1]
+
+addtorow <- list()
+addtorow$pos <- list(0, 0, 0, 0, 0, 0, 0)
+addtorow$command <- c( 
+  # Header for first page
+  "Division & Class & Species & \\multicolumn{4}{c}{18S rRNA filter} & \\multicolumn{4}{c}{16S rRNA plastid filter}  & \\multicolumn{4}{c}{18S rRNA sort} \\\\\n", 
+  "& & & min & mean & max & n & min & mean & max & n & min & mean & max & n \\\\\n",
+  "\\endfirsthead \n \\hline \n",
+  
+  # Header for other pages
+  "Division & Class & Species & \\multicolumn{4}{c}{18S filter} & \\multicolumn{4}{c}{16S filter}  & \\multicolumn{4}{c}{18S sort} \\\\\n", 
+  "& & & min & mean & max & n & min & mean & max & n & min & mean & max & n \\\\\n",
+  "\\hline \n \\endhead \n",
+  
+  # Footers
+  "\\hline \n \\endfoot \n  \\endlastfoot \n"
+)
+
+
+
+table <- readxl::read_excel(path=file_main, sheet=one_sheet, range= "A3:O129", col_names = FALSE) 
+
+
+table <- xtable::xtable(table, label=one_label, 
+                        caption=one_caption, 
+                        align = c("l","l","l", "l","c","c", "c", "c", "c","c","c", "c","c","c", "c", "c"),
+                        digits= c(0, 0, 0,0, 2,2,2,0,2,2,2,0,2,2,2,0 ))
+print(table,  
+      # scalebox = 0.75, 
+      caption.placement = "top",
+      add.to.row = addtorow, 
+      include.colnames = FALSE,
+      include.rownames = FALSE, 
+      tabular.environment = "longtable",
+      file=path_table(one_file),
+      sanitize.text.function = sanitize.italics)
+```
+
+
+## Table - Species euphotic
+```{r, eval=FALSE}
+one_sheet <- "Table species euphotic"
+one_legend <- filter(legends, table == one_sheet)
+one_caption <- one_legend$legend[1]
+one_label <- one_legend$label[1]
+one_file <- one_legend$file_name[1]
+
+addtorow <- list()
+addtorow$pos <- list(0, 0, 0, 0, 0)
+addtorow$command <- c( 
+  # Header for first page
+  "Division & Class & Species \\\\\n", 
+  "\\endfirsthead \n \\hline \n",
+  
+  # Header for other pages
+  "Division & Class & Species \\\\\n", 
+  "\\hline \n \\endhead \n",
+  
+  # Footers
+  "\\hline \n \\endfoot \n  \\endlastfoot \n"
+)
+
+
+
+table <- readxl::read_excel(path=file_main, sheet=one_sheet, range= "A2:C44", col_names = FALSE) 
+
+
+table <- xtable::xtable(table, label=one_label, 
+                        caption=one_caption, 
+                        align = c("l","l","l", "l")
+                        )
+print(table,  
+      # scalebox = 0.75, 
+      caption.placement = "top",
+      add.to.row = addtorow, 
+      include.colnames = FALSE,
+      include.rownames = FALSE, 
+      tabular.environment = "longtable",
+      file=path_table(one_file),
+      sanitize.text.function = sanitize.italics)
+
+```
+
