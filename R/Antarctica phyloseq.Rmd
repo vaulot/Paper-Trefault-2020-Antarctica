@@ -837,6 +837,8 @@ long_class_sample <- list()
 ```
 ## Build the species table including all samples
 
+**TO DO**: Remove XXX sp. from euphotic zone if another species from that genus in the surface table (e.g. Micromonas sp.)
+
 ```{r}
 unfill <- function(x) {
   same <- x == dplyr::lag(x)
